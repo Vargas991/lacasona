@@ -57,6 +57,7 @@ function App() {
   );
   const [tab, setTab] = useState<'sala' | 'kds' | 'caja' | 'menu' | 'dashboard' | 'historial'>('sala');
   const [draftsHydrated, setDraftsHydrated] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const token = session?.accessToken;
 
@@ -140,6 +141,27 @@ function App() {
       getSocket()?.disconnect();
     };
   }, [token, dashboardFilters.from, dashboardFilters.to]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!token || !isOnline) {
+      return;
+    }
+
+    flushOfflineQueue(token).then(loadData).catch(() => undefined);
+  }, [token, isOnline]);
 
   useEffect(() => {
     const onUnauthorized = () => {
@@ -571,6 +593,12 @@ function App() {
           Salir
         </button>
       </header>
+
+      {!isOnline && (
+        <div className="network-status-banner offline">
+          Sin conexion. Los cambios se guardaran en cola hasta recuperar la red.
+        </div>
+      )}
 
       <nav className="tabs">
         <button onClick={() => setTab('sala')}>Sala</button>

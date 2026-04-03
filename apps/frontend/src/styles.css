@@ -41,6 +41,21 @@ body {
   margin-bottom: 1rem;
 }
 
+.network-status-banner {
+  border: 1px solid #7f1d1d;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #7f1d1d;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.8rem;
+  font-weight: 700;
+}
+
+.network-status-banner.offline {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
 .tabs {
   display: flex;
   gap: 0.6rem;
