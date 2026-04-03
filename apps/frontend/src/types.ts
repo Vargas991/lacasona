@@ -1,0 +1,174 @@
+export type UserRole = 'ADMIN' | 'WAITER' | 'KITCHEN';
+
+export type TableStatus = 'FREE' | 'OCCUPIED' | 'RESERVED' | 'BILLING' | 'DISABLED';
+
+export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED';
+
+export type PaymentMethod =
+  | 'CASH'
+  | 'CARD'
+  | 'CASH_COP'
+  | 'BOLIVARES'
+  | 'POS'
+  | 'MOBILE_PAYMENT'
+  | 'USD'
+  | 'ZELLE';
+
+export interface UserSession {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  accessToken: string;
+}
+
+export interface RestaurantTable {
+  id: string;
+  name: string;
+  capacity: number;
+  zone?: string;
+  layoutX?: number;
+  layoutY?: number;
+  status: TableStatus;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  price: string;
+  isActive?: boolean;
+  description?: string;
+  category?: {
+    id: string;
+    name: string;
+    isPackaging?: boolean;
+  } | null;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  isPackaging?: boolean;
+}
+
+export interface OrderItem {
+  productId: string;
+  quantity: number;
+  note?: string;
+}
+
+export interface Order {
+  id: string;
+  tableId: string;
+  waiterId: string;
+  dateKey: string;
+  dailySequence: number;
+  status: OrderStatus;
+  createdAt: string;
+  table: RestaurantTable;
+  items: Array<{
+    id: string;
+    quantity: number;
+    note?: string;
+    unitPrice: string;
+    product: Product;
+  }>;
+}
+
+export interface CashPreviewItem {
+  orderId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  note?: string;
+}
+
+export interface CashPreview {
+  table: {
+    id: string;
+    name: string;
+  };
+  orders: Array<{
+    id: string;
+    status: string;
+    createdAt: string;
+  }>;
+  items: CashPreviewItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  conversions: {
+    cop: number;
+    bs: number;
+    usd: number;
+  };
+  exchangeRates: {
+    copToBsDivisor: number;
+    copToUsdDivisor: number;
+  };
+}
+
+export interface KitchenTicketPreview {
+  orderId: string;
+  tableName: string;
+  dailySequence: number;
+  printable: boolean;
+  validationErrors: string[];
+  previewText: string;
+  escpos: string;
+}
+
+export interface OrderHistoryRecord extends Order {
+  waiter: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  payment?: {
+    id: string;
+    total: string;
+    method: PaymentMethod;
+    paidCurrency?: 'COP' | 'BS' | 'USD';
+    paidAmount?: string;
+    copToBsDivisorSnapshot?: string;
+    copToUsdDivisorSnapshot?: string;
+    paidAt: string;
+  } | null;
+}
+
+export interface DashboardStats {
+  tablesFree: number;
+  tablesOccupied: number;
+  activeOrders: number;
+  revenueToday: number;
+  revenuePeriod?: number;
+  ticketsToday: number;
+  ticketsPeriod?: number;
+  dateRange?: {
+    from: string;
+    to: string;
+  };
+  exchangeRates: {
+    copToBsDivisor: number;
+    copToUsdDivisor: number;
+  };
+  paymentsByMethod: Array<{
+    method: PaymentMethod;
+    count: number;
+    total: number;
+  }>;
+  salesReport: Array<{
+    productId: string;
+    productName: string;
+    categoryName: string;
+    isPackaging: boolean;
+    isBeverage: boolean;
+    quantity: number;
+    unitPrice: number;
+    totalCop: number;
+    totalBs: number;
+    totalUsd: number;
+  }>;
+}

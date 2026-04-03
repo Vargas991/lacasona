@@ -1,0 +1,25 @@
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'CASH_COP';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'BOLIVARES';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'POS';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'MOBILE_PAYMENT';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'USD';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'ZELLE';
+
+CREATE TABLE IF NOT EXISTS "DashboardSettings" (
+  "id" TEXT NOT NULL,
+  "copToBsDivisor" DECIMAL(10,4) NOT NULL,
+  "copToUsdMultiplier" DECIMAL(12,8) NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "DashboardSettings_pkey" PRIMARY KEY ("id")
+);
+
+INSERT INTO "DashboardSettings" (
+  "id",
+  "copToBsDivisor",
+  "copToUsdMultiplier",
+  "createdAt",
+  "updatedAt"
+)
+VALUES ('default', 5.5000, 0.00027778, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;

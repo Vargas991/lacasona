@@ -1,0 +1,2 @@
+ALTER TABLE "Category"
+ADD COLUMN "isPackaging" BOOLEAN NOT NULL DEFAULT false;
