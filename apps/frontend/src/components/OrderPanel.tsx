@@ -1,3 +1,26 @@
+// Imprimir preview de cocina en navegador (formato 58mm)
+function printKitchenPreviewInBrowser(preview: KitchenTicketPreview) {
+  const printWindow = window.open('', '_blank', 'width=600,height=600');
+  if (!printWindow) return;
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Comanda - ${preview.orderId}</title>
+        <style>
+          body { font-family: monospace; font-size: 14px; width: 58mm; margin: 0; padding: 8px; }
+          pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <pre>${preview.previewText}</pre>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  printWindow.close();
+}
 import { useEffect, useMemo, useState } from 'react';
 import { KitchenTicketPreview, OrderItem, Product, RestaurantTable } from '../types';
 
@@ -9,7 +32,8 @@ interface Props {
   canMoveTable?: boolean;
   onMoveTable?: (fromTableId: string, toTableId: string) => Promise<void>;
   onChangeItems: (items: OrderItem[]) => void;
-  onCreateOrder: (tableId: string, items: OrderItem[]) => Promise<KitchenTicketPreview | null>;
+  onCreateOrder: (tableId: string, items: OrderItem[], isDelivery?: boolean, deliveryAddress?: string) => Promise<KitchenTicketPreview | null>;
+  onPrintKitchenTicket: (orderId: string) => Promise<void>;
 }
 
 export function OrderPanel({
@@ -21,6 +45,7 @@ export function OrderPanel({
   onMoveTable,
   onChangeItems,
   onCreateOrder,
+  onPrintKitchenTicket,
 }: Props) {
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [lastPreview, setLastPreview] = useState<KitchenTicketPreview | null>(null);
@@ -102,7 +127,6 @@ export function OrderPanel({
   );
 
   const finalTotal = subtotal + packagingPrice;
-
   const packagingCategoryName = packagingProducts[0]?.category?.name || 'Envases';
 
   if (!table) {
@@ -110,9 +134,7 @@ export function OrderPanel({
   }
 
   const availableMoveTargets = tables.filter(
-    (candidate) =>
-      candidate.id !== table.id &&
-      candidate.status === 'FREE',
+    (candidate) => candidate.id !== table.id && candidate.status === 'FREE',
   );
 
   const add = (productId: string) => {
@@ -147,31 +169,14 @@ export function OrderPanel({
     );
   };
 
-  const printPreview = (preview: KitchenTicketPreview) => {
-    const popup = window.open('', '_blank', 'width=420,height=640');
-    if (!popup) {
-      window.alert('No se pudo abrir ventana de impresion. Revisa el bloqueador de ventanas.');
-      return;
+  async function printToKitchenPrinter(orderId: string) {
+    try {
+      await onPrintKitchenTicket(orderId);
+      window.alert('Comanda enviada a la impresora de cocina.');
+    } catch (err) {
+      window.alert('No se pudo imprimir en cocina: ' + (err as Error).message);
     }
-
-    popup.document.write(`
-      <html>
-        <head>
-          <title>Comanda Cocina</title>
-          <style>
-            body { font-family: monospace; padding: 16px; }
-            pre { white-space: pre-wrap; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <pre>${preview.previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-        </body>
-      </html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
-  };
+  }
 
   return (
     <section className="panel">
@@ -305,23 +310,19 @@ export function OrderPanel({
               window.alert('Ingresa la direccion de entrega.');
               return;
             }
-
-            let addedAddress = false;
-            itemsToSend = items.map((item) => {
-              if (addedAddress || !packagingProductIds.has(item.productId)) {
-                return item;
-              }
-
-              addedAddress = true;
-              const extraNote = `Para llevar | Direccion: ${deliveryAddress.trim()}`;
-              return {
-                ...item,
-                note: item.note ? `${item.note} | ${extraNote}` : extraNote,
-              };
-            });
           }
 
-          const preview = await onCreateOrder(table.id, itemsToSend);
+          // Llama a onCreateOrder con isDelivery y deliveryAddress si es para llevar
+          const preview = await onCreateOrder(
+            table.id,
+            itemsToSend,
+            isTakeout ? true : undefined,
+            isTakeout ? deliveryAddress.trim() : undefined
+          );
+
+          console.log(preview);
+          
+          
           onChangeItems([]);
           setLastPreview(preview);
           setIsTakeout(false);
@@ -333,8 +334,9 @@ export function OrderPanel({
           }
 
           if (!preview.printable) {
-            window.alert(`Comanda enviada con errores de impresion:\n- ${preview.validationErrors.join('\n- ')}`);
-            return;
+            window.alert(
+              `Comanda enviada con errores de impresion:\n- ${preview.validationErrors.join('\n- ')}`,
+            );
           }
         }}
         disabled={!items.length}
@@ -359,14 +361,20 @@ export function OrderPanel({
             )}
 
             <pre>{lastPreview.previewText}</pre>
-
             <div className="print-preview-actions">
               <button
                 type="button"
-                onClick={() => printPreview(lastPreview)}
+                onClick={() => printToKitchenPrinter(lastPreview.orderId)}
                 disabled={!lastPreview.printable}
               >
-                Imprimir comanda
+                Imprimir en cocina (backend)
+              </button>
+              <button
+                type="button"
+                onClick={() => printKitchenPreviewInBrowser(lastPreview)}
+                disabled={!lastPreview.printable}
+              >
+                Imprimir desde navegador
               </button>
             </div>
           </section>

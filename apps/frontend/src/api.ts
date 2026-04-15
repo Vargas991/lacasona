@@ -1,7 +1,9 @@
 import { enqueueRequest, readQueue, clearQueue } from './store/offlineQueue';
 import { clearSession } from './store/auth';
+import { getApiUrl } from './runtimeConfig';
+import type { KitchenTicketPreview, OrderReceiptPreview } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = getApiUrl();
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 

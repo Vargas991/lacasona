@@ -32,4 +32,11 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items!: CreateOrderItemDto[];
+
+  @IsOptional()
+  isDelivery?: boolean;
+
+  @IsOptional()
+  @IsString()
+  deliveryAddress?: string;
 }

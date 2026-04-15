@@ -124,6 +124,8 @@ model Order {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   closedAt   DateTime?
+  deliveryAddress String?
+  isDelivery  Boolean     @default(false)
   table      Table       @relation(fields: [tableId], references: [id])
   waiter     User        @relation(fields: [waiterId], references: [id])
   items      OrderItem[]

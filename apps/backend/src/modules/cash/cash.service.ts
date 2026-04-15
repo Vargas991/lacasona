@@ -35,10 +35,33 @@ export class CashService {
 
     const openOrders = await this.prisma.order.findMany({
       where: ordersWhere,
-      include: {
-        items: { include: { product: true } },
-      },
       orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        isDelivery: true,
+        deliveryAddress: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            quantity: true,
+            unitPrice: true,
+            note: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                price: true,
+                isActive: true,
+                categoryId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!openOrders.length) {
@@ -58,7 +81,9 @@ export class CashService {
     );
 
     const subtotal = detailItems.reduce((sum, item) => sum + item.lineTotal, 0);
-    const tax = subtotal * 0.16;
+    // const tax = subtotal * 0.16;
+    // const tax = subtotal * 0.16;
+    const tax = 0;
     const total = subtotal + tax;
 
     return {
@@ -70,6 +95,8 @@ export class CashService {
         id: order.id,
         status: order.status,
         createdAt: order.createdAt,
+        isDelivery: order.isDelivery,
+        deliveryAddress: order.deliveryAddress,
       })),
       items: detailItems,
       subtotal,
@@ -122,7 +149,7 @@ export class CashService {
         (sum, item) => sum + Number(item.unitPrice) * item.quantity,
         0,
       );
-      const tax = subtotal * 0.16;
+      const tax = 0;
       const total = subtotal + tax;
 
       return {

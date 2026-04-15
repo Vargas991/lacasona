@@ -162,7 +162,7 @@ export function TableGrid({
                   <button className="table-select-btn" onClick={() => onSelect(table)}>
                     <strong>{table.name}</strong>
                     <span>{TABLE_STATUS_LABEL[table.status] || table.status}</span>
-                    <small>{table.capacity} personas</small>
+                    {/* <small>{table.capacity} personas</small> */}
                   </button>
                 </article>
               ))}

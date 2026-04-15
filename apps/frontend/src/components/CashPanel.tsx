@@ -1,4 +1,57 @@
+// Utilidad para imprimir el preview desde el navegador
+function printPreviewInBrowser(preview: CashPreview) {
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) return;
+  // Generar texto tipo recibo térmico
+  let text = '';
+  text += `          LA CASONA\n`;
+  text += `            RECIBO\n\n`;
+  text += preview.orders[0].isDelivery && preview.table.name =="Delivery"
+      ? `DELIVERY`
+      : !preview.orders[0].isDelivery ? `Mesa: ${preview.table.name}`
+      : `**PEDIDO PARA LLEVAR** \nMesa: ${preview.table.name}`
+
+  // text += `MESA: ${preview.table.name}\n`;
+  // text += `FECHA: ${new Date().toLocaleString()}\n`;
+  if(preview.orders[0].isDelivery){
+  // text += '------------------------\n';
+  //   text += 'PEDIDO PARA LLEVAR\n';
+    text += `\nDIRECCIÓN: ${preview.orders[0].deliveryAddress}\n`;
+  }
+  text += '\n-------------------\n';
+  preview.items.forEach(item => {
+    text += `${item.quantity} x ${item.productName}`.padEnd(2) + ` $${item.unitPrice.toFixed(2)}\n`;
+    // if (item.note) text += `\nNota: ${item.note}\n`;
+  });
+  text += '---------------------\n';
+  // text += `SUBTOTAL: $${preview.subtotal.toFixed(2)}\n`;
+  // text += `IVA: $${preview.tax.toFixed(2)}\n`;
+  text += `TOTAL: $${preview.total.toFixed(2)}\n`;
+  text += '---------------------\n';
+  text += `Bs: ${preview.conversions.bs.toFixed(2)}\n`;
+  text += `USD: ${preview.conversions.usd.toFixed(2)}\n`;
+  text += '\n\n';
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Recibo - ${preview.table.name}</title>
+        <style>
+          body { font-family: monospace; font-size: 14px; width: 58mm; margin: 0; padding: 8px; }
+          pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <pre>${text}</pre>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  printWindow.close();
+}
 import { useState } from 'react';
+import { ModalConfirm } from './ModalConfirm';
 import { CashPreview, PaymentMethod, RestaurantTable } from '../types';
 
 interface Props {
@@ -6,6 +59,7 @@ interface Props {
   userId: string;
   onCloseTable: (tableId: string, method: PaymentMethod) => Promise<void>;
   onPreviewTable: (tableId: string) => Promise<CashPreview>;
+  onPrintInvoice: (tableId: string) => Promise<void>;
 }
 
 const PAYMENT_OPTIONS: Array<{ method: PaymentMethod; label: string }> = [
@@ -16,7 +70,7 @@ const PAYMENT_OPTIONS: Array<{ method: PaymentMethod; label: string }> = [
   { method: 'ZELLE', label: 'Zelle' },
 ];
 
-export function CashPanel({ tables, onCloseTable, onPreviewTable }: Props) {
+export function CashPanel({ tables, onCloseTable, onPreviewTable, onPrintInvoice }: Props) {
   const occupied = tables.filter((t) =>
     ['OCCUPIED', 'RESERVED', 'BILLING'].includes(t.status),
   );
@@ -24,6 +78,7 @@ export function CashPanel({ tables, onCloseTable, onPreviewTable }: Props) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('CASH_COP');
   const [preview, setPreview] = useState<CashPreview | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const openPreview = async (tableId: string) => {
     setLoading(true);
@@ -43,6 +98,7 @@ export function CashPanel({ tables, onCloseTable, onPreviewTable }: Props) {
     await onCloseTable(selectedTableId, method);
     setPreview(null);
     setSelectedTableId(null);
+    setShowConfirmModal(false);
   };
 
   return (
@@ -88,8 +144,8 @@ export function CashPanel({ tables, onCloseTable, onPreviewTable }: Props) {
           </table>
 
           <div className="cash-totals">
-            <p>Subtotal: ${preview.subtotal.toFixed(2)}</p>
-            <p>IVA: ${preview.tax.toFixed(2)}</p>
+            {/* <p>Subtotal: ${preview.subtotal.toFixed(2)}</p>
+            <p>IVA: ${preview.tax.toFixed(2)}</p> */}
             <p>Total: ${preview.total.toFixed(2)}</p>
             <p>Total Bs: {preview.conversions.bs.toFixed(2)}</p>
             <p>Total USD: {preview.conversions.usd.toFixed(2)}</p>
@@ -117,7 +173,40 @@ export function CashPanel({ tables, onCloseTable, onPreviewTable }: Props) {
           </div>
 
           <div className="cash-actions">
-            <button onClick={() => closeWithMethod(selectedMethod)}>Cerrar cuenta</button>
+            {/* <button
+              type="button"
+              onClick={async () => {
+                if (!selectedTableId) {
+                  return;
+                }
+                try {
+                  await onPrintInvoice(selectedTableId);
+                  window.alert('Factura enviada a la impresora.');
+                } catch (error) {
+                  window.alert(
+                    'No se pudo imprimir la factura: ' + (error as Error).message,
+                  );
+                }
+              }}
+            >
+              Imprimir factura (backend)
+            </button> */}
+            <button
+              type="button"
+              onClick={() => preview && printPreviewInBrowser(preview)}
+            >
+              Imprimir 
+            </button>
+            <button onClick={() => setShowConfirmModal(true)}>Cerrar cuenta</button>
+            <ModalConfirm
+              open={showConfirmModal}
+              title="¿Confirmar cierre de cuenta?"
+              message={`¿Deseas cerrar la cuenta con el método: ${PAYMENT_OPTIONS.find(opt => opt.method === selectedMethod)?.label || selectedMethod}?`}
+              confirmLabel="Confirmar"
+              cancelLabel="Cancelar"
+              onConfirm={() => closeWithMethod(selectedMethod)}
+              onCancel={() => setShowConfirmModal(false)}
+            />
           </div>
         </section>
       )}

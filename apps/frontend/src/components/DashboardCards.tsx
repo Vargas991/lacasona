@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardStats } from '../types';
 
 interface Props {
@@ -47,17 +47,29 @@ function getPeriodRange(period: 'today' | 'yesterday' | 'last7' | 'month') {
 }
 
 export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRates }: Props) {
-  if (!stats) {
-    return <section className="panel">Sin datos de dashboard</section>;
-  }
-
-  const [copToBsDivisor, setCopToBsDivisor] = useState(String(stats.exchangeRates.copToBsDivisor));
-  const [copToUsdDivisor, setCopToUsdDivisor] = useState(
-    String(stats.exchangeRates.copToUsdDivisor),
-  );
+  const [draftFilters, setDraftFilters] = useState(filters);
+  const [copToBsDivisor, setCopToBsDivisor] = useState('');
+  const [copToUsdDivisor, setCopToUsdDivisor] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    setDraftFilters(filters);
+  }, [filters.from, filters.to]);
+
+  useEffect(() => {
+    if (!stats) {
+      return;
+    }
+
+    setCopToBsDivisor(String(stats.exchangeRates.copToBsDivisor));
+    setCopToUsdDivisor(String(stats.exchangeRates.copToUsdDivisor));
+  }, [stats]);
+
+  if (!stats) {
+    return <section className="panel">Sin datos de dashboard</section>;
+  }
 
   const groupedPayments = Object.values(
     stats.paymentsByMethod.reduce<
@@ -187,7 +199,7 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
             event.preventDefault();
             setLoadingStats(true);
             try {
-              await onLoadStats(filters);
+              await onLoadStats(draftFilters);
             } finally {
               setLoadingStats(false);
             }
@@ -197,9 +209,11 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
             <button
               type="button"
               onClick={async () => {
+                const next = getPeriodRange('today');
+                setDraftFilters(next);
                 setLoadingStats(true);
                 try {
-                  await onLoadStats(getPeriodRange('today'));
+                  await onLoadStats(next);
                 } finally {
                   setLoadingStats(false);
                 }
@@ -210,9 +224,11 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
             <button
               type="button"
               onClick={async () => {
+                const next = getPeriodRange('yesterday');
+                setDraftFilters(next);
                 setLoadingStats(true);
                 try {
-                  await onLoadStats(getPeriodRange('yesterday'));
+                  await onLoadStats(next);
                 } finally {
                   setLoadingStats(false);
                 }
@@ -223,9 +239,11 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
             <button
               type="button"
               onClick={async () => {
+                const next = getPeriodRange('last7');
+                setDraftFilters(next);
                 setLoadingStats(true);
                 try {
-                  await onLoadStats(getPeriodRange('last7'));
+                  await onLoadStats(next);
                 } finally {
                   setLoadingStats(false);
                 }
@@ -236,9 +254,11 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
             <button
               type="button"
               onClick={async () => {
+                const next = getPeriodRange('month');
+                setDraftFilters(next);
                 setLoadingStats(true);
                 try {
-                  await onLoadStats(getPeriodRange('month'));
+                  await onLoadStats(next);
                 } finally {
                   setLoadingStats(false);
                 }
@@ -250,16 +270,22 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
 
           <input
             type="date"
-            value={filters.from || ''}
+            value={draftFilters.from || ''}
             onChange={(event) => {
-              void onLoadStats({ ...filters, from: event.target.value || undefined });
+              setDraftFilters((current) => ({
+                ...current,
+                from: event.target.value || undefined,
+              }));
             }}
           />
           <input
             type="date"
-            value={filters.to || ''}
+            value={draftFilters.to || ''}
             onChange={(event) => {
-              void onLoadStats({ ...filters, to: event.target.value || undefined });
+              setDraftFilters((current) => ({
+                ...current,
+                to: event.target.value || undefined,
+              }));
             }}
           />
           <button type="submit" disabled={loadingStats}>
@@ -309,7 +335,7 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
       </section>
 
       <section className="dashboard-section">
-        <h3>Tipos de pago hoy</h3>
+        <h3>Tipos de pago del periodo</h3>
         <div className="payment-summary-grid">
           {groupedPayments.map((item) => (
             <article key={item.key}>

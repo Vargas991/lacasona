@@ -58,6 +58,8 @@ export class OrdersService {
           dateKey,
           dailySequence: counter.lastOrderNumber,
           status: OrderStatus.PENDING,
+          isDelivery: dto.isDelivery ?? false,
+          deliveryAddress: dto.deliveryAddress ?? null,
           items: {
             create: dto.items.map((item) => ({
               productId: item.productId,
@@ -241,7 +243,9 @@ export class OrdersService {
       return sum + orderTotal;
     }, 0);
 
-    const tax = subtotal * 0.16;
+    // const tax = subtotal * 0.16;
+    // const total = subtotal + tax;
+    const tax = 0;
     const total = subtotal + tax;
 
     return {

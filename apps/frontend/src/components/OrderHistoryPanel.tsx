@@ -1,3 +1,90 @@
+// Imprimir recibo de orden en navegador (estilo térmico)
+function printOrderReceiptInBrowser(order: OrderHistoryRecord) {
+  const printWindow = window.open('', '_blank', 'width=600,height=600');
+  if (!printWindow) return;
+  let text = '';
+  text += `          LA CASONA\n`;
+  text += `            RECIBO\n\n`;
+  text += order.isDelivery && order.table.name =="Delivery"
+      ? `DELIVERY`
+      : !order.isDelivery ? `Mesa: ${order.table.name}`
+      : `**PEDIDO PARA LLEVAR** \nMesa: ${order.table.name}`
+
+  // text += `MESA: ${order.table.name}\n`;
+  // text += `FECHA: ${new Date().toLocaleString()}\n`;
+  if(order.isDelivery){
+  // text += '------------------------\n';
+  //   text += 'PEDIDO PARA LLEVAR\n';
+    text += `\nDIRECCIÓN: ${order.deliveryAddress}\n`;
+  }
+  text += '\n-------------------\n';
+  order.items.forEach(item => {
+    text += `${item.quantity} x ${item.product?.name}`.padEnd(2) + ` $${item.unitPrice}\n`;
+    // if (item.note) text += `\nNota: ${item.note}\n`;
+  });
+  text += '---------------------\n';
+  // text += `SUBTOTAL: $${preview.subtotal.toFixed(2)}\n`;
+  // text += `IVA: $${preview.tax.toFixed(2)}\n`;
+  text += `TOTAL: $${ order.payment?.total}\n`; 
+  text += '---------------------\n';
+  text += `Cobro: ${order.payment?.paidAmount} ${order.payment?.paidCurrency}\n`;
+  text += '\n\n';
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Recibo - ${order.table.name}</title>
+        <style>
+          body { font-family: monospace; font-size: 14px; width: 58mm; margin: 0; padding: 8px; }
+          pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <pre>${text}</pre>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  printWindow.close();
+}
+
+
+async function printKitchenTicketInBrowser(orderId: string, getKitchenTicket: (orderId: string) => Promise<KitchenTicketPreview | null>) {
+
+  // console.log(data);
+  
+  try {
+    const data = await getKitchenTicket(orderId);
+    if (!data || !data.previewText) {
+      window.alert('No hay preview disponible para imprimir.');
+      return;
+    }
+    const printWindow = window.open('', '_blank', 'width=600,height=600');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title> Cocina</title>
+          <style>
+            body { font-family: monospace; font-size: 14px; width: 58mm; margin: 0; padding: 8px; }
+            pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <pre>${data.previewText}</pre>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  } catch (err) {
+    window.alert('Error al imprimir en navegador.');
+  }
+}
+
 import { useMemo, useState } from 'react';
 import {
   KitchenTicketPreview,
@@ -6,6 +93,7 @@ import {
   PaymentMethod,
   RestaurantTable,
 } from '../types';
+import { useAppData } from '../hooks/useAppData';
 
 interface HistoryFilters {
   from?: string;
@@ -25,6 +113,9 @@ interface Props {
   };
   onSearch: (filters: HistoryFilters) => Promise<void>;
   onReprint: (orderId: string) => Promise<KitchenTicketPreview | null>;
+  onPrintKitchenTicket: (orderId: string) => Promise<void>;
+  onPrintOrderReceipt: (orderId: string) => Promise<void>;
+  getKitchenTicket: (orderId: string) => Promise<KitchenTicketPreview | null>;
 }
 
 const STATUS_OPTIONS: Array<OrderStatus | ''> = ['', 'PENDING', 'PREPARING', 'READY', 'DELIVERED'];
@@ -102,36 +193,14 @@ export function OrderHistoryPanel({
   exchangeRates,
   onSearch,
   onReprint,
+  onPrintKitchenTicket,
+  onPrintOrderReceipt,
+  getKitchenTicket,
 }: Props) {
   const [filters, setFilters] = useState<HistoryFilters>({});
   const [selectedOrder, setSelectedOrder] = useState<OrderHistoryRecord | null>(null);
   const [reprintLoading, setReprintLoading] = useState(false);
-
-  const printPreview = (preview: KitchenTicketPreview) => {
-    const popup = window.open('', '_blank', 'width=420,height=640');
-    if (!popup) {
-      window.alert('No se pudo abrir ventana de impresion. Revisa el bloqueador de ventanas.');
-      return;
-    }
-
-    popup.document.write(`
-      <html>
-        <head>
-          <title>Comanda Cocina</title>
-          <style>
-            body { font-family: monospace; padding: 16px; }
-            pre { white-space: pre-wrap; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <pre>${preview.previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-        </body>
-      </html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
-  };
+  const [receiptLoading, setReceiptLoading] = useState(false);
 
   const totalOrders = orders.length;
   const totalSales = useMemo(
@@ -372,7 +441,7 @@ export function OrderHistoryPanel({
                 <button type="button" onClick={() => setSelectedOrder(order)}>
                   Ver comanda
                 </button>
-                <button
+                {/* <button
                   type="button"
                   onClick={async () => {
                     setReprintLoading(true);
@@ -386,7 +455,8 @@ export function OrderHistoryPanel({
                         window.alert(`La comanda no es imprimible:\n- ${preview.validationErrors.join('\n- ')}`);
                         return;
                       }
-                      printPreview(preview);
+                      await onPrintKitchenTicket(order.id);
+                      window.alert('Comanda reenviada a la impresora de cocina.');
                     } finally {
                       setReprintLoading(false);
                     }
@@ -394,7 +464,22 @@ export function OrderHistoryPanel({
                   disabled={reprintLoading}
                 >
                   {reprintLoading ? 'Procesando...' : 'Reimprimir'}
-                </button>
+                </button> */}
+                {/* <button
+                  type="button"
+                  onClick={async () => {
+                    setReceiptLoading(true);
+                    try {
+                      await onPrintOrderReceipt(order.id);
+                      window.alert('Recibo reenviado a la impresora.');
+                    } finally {
+                      setReceiptLoading(false);
+                    }
+                  }}
+                  disabled={receiptLoading}
+                >
+                  {receiptLoading ? 'Procesando...' : 'Reimprimir recibo'}
+                </button> */}
               </div>
             </article>
           );
@@ -441,7 +526,7 @@ export function OrderHistoryPanel({
             </p>
 
             <div className="history-actions">
-              <button
+              {/* <button
                 type="button"
                 onClick={async () => {
                   setReprintLoading(true);
@@ -455,7 +540,8 @@ export function OrderHistoryPanel({
                       window.alert(`La comanda no es imprimible:\n- ${preview.validationErrors.join('\n- ')}`);
                       return;
                     }
-                    printPreview(preview);
+                    await onPrintKitchenTicket(selectedOrder.id);
+                    window.alert('Comanda reenviada a la impresora de cocina.');
                   } finally {
                     setReprintLoading(false);
                   }
@@ -463,6 +549,33 @@ export function OrderHistoryPanel({
                 disabled={reprintLoading}
               >
                 {reprintLoading ? 'Procesando...' : 'Reimprimir'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setReceiptLoading(true);
+                  try {
+                    await onPrintOrderReceipt(selectedOrder.id);
+                    window.alert('Recibo reenviado a la impresora.');
+                  } finally {
+                    setReceiptLoading(false);
+                  }
+                }}
+                disabled={receiptLoading}
+              >
+                {receiptLoading ? 'Procesando...' : 'Reimprimir recibo'}
+              </button> */}
+              <button
+                type="button"
+                onClick={() => printOrderReceiptInBrowser(selectedOrder)}
+              >
+                Imprimir Recibo
+              </button>
+              <button
+                type="button"
+                onClick={() => printKitchenTicketInBrowser(selectedOrder.id, getKitchenTicket)}
+              >
+                Imprimir Comanda Cocina
               </button>
             </div>
           </section>

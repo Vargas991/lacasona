@@ -1,9 +1,10 @@
 import { io, Socket } from 'socket.io-client';
+import { getSocketUrl } from '../runtimeConfig';
 
 let socket: Socket | null = null;
 
 export function connectSocket() {
-  const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+  const url = getSocketUrl();
   socket = io(`${url}/pos`);
   return socket;
 }

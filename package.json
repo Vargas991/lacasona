@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev:backend": "npm --workspace apps/backend run start:dev",
+    "kill-port": "npx kill-port 3000",
     "dev:frontend": "npm --workspace apps/frontend run dev -- --host 0.0.0.0 --port 5173",
     "preview:frontend": "npm --workspace apps/frontend run preview -- --host 0.0.0.0 --port 4173",
     "build": "npm run build:backend && npm run build:frontend",
@@ -16,5 +17,8 @@
     "prisma:migrate": "npm --workspace apps/backend run prisma:migrate",
     "prisma:generate": "npm --workspace apps/backend run prisma:generate",
     "prisma:seed": "npm --workspace apps/backend run prisma:seed"
+  },
+  "dependencies": {
+    "printer": "^0.4.0"
   }
 }

@@ -5,8 +5,8 @@ interface Props {
 }
 
 export function LoginForm({ onSubmit }: Props) {
-  const [email, setEmail] = useState('admin@lacasona.local');
-  const [password, setPassword] = useState('Admin123*');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {

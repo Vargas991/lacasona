@@ -5,3 +5,5 @@ apps/backend/dist
 apps/frontend/dist
 apps/backend/prisma/dev.db
 *.log
+.runtime/
+*.pid

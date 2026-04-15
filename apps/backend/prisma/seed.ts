@@ -25,7 +25,7 @@ async function main() {
     }
   }
 
-  const tables = ['M1', 'M2', 'M3', 'M4', 'M5'];
+  const tables = ['Mesa 1'];
   for (const tableName of tables) {
     const exists = await prisma.table.findUnique({ where: { name: tableName } });
     if (!exists) {
@@ -39,17 +39,10 @@ async function main() {
     create: { name: 'Bebidas' },
   });
 
-  const platos = await prisma.category.upsert({
-    where: { name: 'Platos Fuertes' },
-    update: {},
-    create: { name: 'Platos Fuertes' },
-  });
+ 
 
   const products = [
-    { name: 'Agua Mineral', price: 25, categoryId: bebidas.id },
-    { name: 'Limonada', price: 45, categoryId: bebidas.id },
-    { name: 'Hamburguesa', price: 120, categoryId: platos.id },
-    { name: 'Pasta Alfredo', price: 140, categoryId: platos.id },
+    { name: 'Agua Mineral', price: 2000, categoryId: bebidas.id },
   ];
 
   for (const product of products) {

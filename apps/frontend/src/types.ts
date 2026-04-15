@@ -73,6 +73,8 @@ export interface Order {
     unitPrice: string;
     product: Product;
   }>;
+  isDelivery?: boolean;
+  deliveryAddress?: string;
 }
 
 export interface CashPreviewItem {
@@ -94,6 +96,8 @@ export interface CashPreview {
     id: string;
     status: string;
     createdAt: string;
+    isDelivery?: boolean;
+    deliveryAddress?: string;
   }>;
   items: CashPreviewItem[];
   subtotal: number;
@@ -112,10 +116,29 @@ export interface CashPreview {
 
 export interface KitchenTicketPreview {
   orderId: string;
-  tableName: string;
-  dailySequence: number;
   printable: boolean;
+  isDelivery: boolean;
+  deliveryAddress?: string;
   validationErrors: string[];
+  previewText: string;
+  escpos: string;
+}
+
+export interface PrintJobResult {
+  success: boolean;
+  message: string;
+}
+
+export interface InvoiceTicketPreview {
+  table: string;
+  total: number;
+  escpos: string;
+}
+
+export interface OrderReceiptPreview {
+  orderId: string;
+  table: string;
+  total: number;
   previewText: string;
   escpos: string;
 }
@@ -136,6 +159,8 @@ export interface OrderHistoryRecord extends Order {
     copToUsdDivisorSnapshot?: string;
     paidAt: string;
   } | null;
+  isDelivery?: boolean;
+  deliveryAddress?: string;
 }
 
 export interface DashboardStats {

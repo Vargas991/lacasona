@@ -65,8 +65,14 @@ export function KitchenBoard({ orders, onSetStatus }: Props) {
                 <article key={order.id} className="kds-card">
                   <header>
                     <span>{formatOrderNumber(order.dailySequence)}</span>
-                    <br />
-                    <strong>{order.table.name}</strong>
+                    
+                    <br/>
+                    {
+                      order.isDelivery ? (
+                        <strong>DELIVERY</strong>
+                      ) : 
+                      <strong>{order.table.name}</strong>
+                    }
                     <br />
                     <span>Hora: {formatKitchenTime(order.createdAt)}</span>
                   </header>
