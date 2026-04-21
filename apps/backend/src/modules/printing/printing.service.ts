@@ -1,17 +1,9 @@
-// @ts-ignore
-const escpos = require('escpos');
-const escposUSB = require('escpos-usb');
-escpos.USB = escposUSB;
-
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import * as fs from 'fs';
-import { exec } from 'child_process';
+import { PrismaService } from '../prisma/prisma.service';
 
 type TicketType = 'kitchen' | 'invoice';
 
-// 🔥 Tipo Prisma (sin null gracias a findUniqueOrThrow)
 type OrderWithItems = Prisma.OrderGetPayload<{
   include: {
     items: {
@@ -20,15 +12,9 @@ type OrderWithItems = Prisma.OrderGetPayload<{
       };
     };
     table: true;
-    
-  },
-  select: {
-    isDelivery: true;
-    deliveryAddress: true;
-  },
+  };
 }>;
 
-// 💰 DTOs
 type InvoiceItemDTO = {
   qty: number;
   name: string;
@@ -59,15 +45,18 @@ type InvoicePreviewDTO = {
 export class PrintingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private queue = Promise.resolve();
+  private queue: Promise<void> = Promise.resolve();
 
-  // 🔥 Cola de impresión (evita corrupción)
   enqueuePrint(text: string) {
-    this.queue = this.queue.then(() => this.print(text));
-    return this.queue;
+    const job = this.queue.then(() => this.print(text));
+
+    this.queue = job.catch((error) => {
+      console.error('[PRINT] Queue error:', error);
+    });
+
+    return job;
   }
 
-  // 🔥 Router
   async print(text: string): Promise<void> {
     const simulate = process.env.PRINT_SIMULATE === 'true';
     if (simulate) {
@@ -77,113 +66,48 @@ export class PrintingService {
       return;
     }
 
-    const type = process.env.PRINTER_TYPE || 'network';
-
-    if (type === 'usb') {
-      return this.printUSB(text);
-    }
-    if (type === 'file') {
-      return this.printFile(text);
-    }
-    return this.printNetwork(text);
+    return this.printViaApi(text);
   }
 
-  // 🖨️ Impresión por archivo (RAW)
-  private async printFile(text: string): Promise<void> {
-    // Carpeta temporal dentro del proyecto
-    const testText = 'PRUEBA DE IMPRESIÓN DESDE BACKEND\n\n\n';
-    console.log('[PRINT][FILE] testText:', testText);
-    const tmpDir = `${process.cwd()}${require('path').sep}tmp`;
-    console.log('[PRINT][FILE] tmpDir:', tmpDir);
-    try {
-      if (!fs.existsSync(tmpDir)) {
-        console.log('[PRINT][FILE] tmpDir no existe, creando...');
-        fs.mkdirSync(tmpDir, { recursive: true });
-      }
-    } catch (err) {
-      console.error('[PRINT][FILE] Error creando tmpDir:', err);
-      return;
-    }
-    const filePath = `${tmpDir}${require('path').sep}ticket-impresion.txt`;
-    try {
-      fs.writeFileSync(filePath, testText, { encoding: 'utf8' });
-      console.log('[PRINT][FILE] Archivo creado:', filePath);
-    } catch (err) {
-      console.error('[PRINT][FILE] Error escribiendo archivo:', err);
-      return;
-    }
+  private async printViaApi(text: string): Promise<void> {
+    const endpoint = process.env.PRINT_API_URL || 'http://localhost:5001/imprimir';
+    const printer = process.env.PRINT_API_PRINTER || 'xp';
+    const mode = process.env.PRINT_API_MODE || 'raw';
 
-    // Comando para enviar el archivo a la impresora predeterminada o especificada
-    const printerName = process.env.PRINTER_NAME || 'LPT1:';
-    console.log('[PRINT][FILE] Enviando a impresora:', printerName);
-    exec(`print /D:"${printerName}" "${filePath}"`, (error, stdout, stderr) => {
-      if (error) {
-        console.error('[PRINT][FILE] Error al imprimir:', error);
-      } else {
-        console.log('[PRINT][FILE] Impresión enviada correctamente. stdout:', stdout);
-      }
-      // Opcional: eliminar el archivo después de imprimir
-      try { fs.unlinkSync(filePath); console.log('[PRINT][FILE] Archivo eliminado:', filePath); } catch (e) { console.error('[PRINT][FILE] Error eliminando archivo:', e); }
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        printer,
+        mode,
+        data: text,
+      }),
     });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
+      throw new Error(
+        `Print API request failed with status ${response.status}${responseText ? `: ${responseText}` : ''}`,
+      );
+    }
   }
 
-  // 🌐 NETWORK
-  private async printNetwork(text: string): Promise<void> {
-    const PRINTER_IP = process.env.PRINTER_IP || '192.168.0.100';
-    const PRINTER_PORT = Number(process.env.PRINTER_PORT) || 9100;
-
-    const device = new escpos.Network(PRINTER_IP, PRINTER_PORT);
-    const printer = new escpos.Printer(device);
-
-    return new Promise((resolve, reject) => {
-      device.open((error: any) => {
-        if (error) return reject(error);
-
-        const buffer = Buffer.from(text, 'latin1');
-
-        printer.raw(buffer);
-        printer.close(() => resolve());
-      });
-    });
-  }
-
-  // 🔌 USB
-  private async printUSB(text: string): Promise<void> {
-    const device = new escpos.USB();
-    const printer = new escpos.Printer(device);
-
-    return new Promise((resolve, reject) => {
-      device.open((error: any) => {
-        if (error) return reject(error);
-
-        const buffer = Buffer.from(text, 'latin1');
-
-        printer.raw(buffer);
-        printer.close(() => resolve());
-      });
-    });
-  }
-
-  // 🔥 Builder general
   private buildTicket(type: TicketType, data: OrderWithItems | InvoiceDTO): string {
     switch (type) {
       case 'kitchen':
         return this.buildKitchenEscpos(data as OrderWithItems);
-
       case 'invoice':
         return this.buildInvoiceEscpos(data as InvoiceDTO);
-
       default:
         throw new Error('Invalid ticket type');
     }
   }
 
-  // 🍳 COCINA
   private buildKitchenEscpos(order: OrderWithItems): string {
     const hasCutter = process.env.PRINTER_HAS_CUTTER === 'true';
 
-    
-    
     let escpos = '';
 
     escpos += '\x1B\x40';
@@ -192,20 +116,21 @@ export class PrintingService {
     escpos += '\x1B\x45\x00';
 
     escpos += `Comanda: #${String(order.dailySequence).padStart(3, '0')}\n`;
-    if(order.isDelivery) {
+    if (order.isDelivery) {
       escpos += 'DELIVERY\n';
     } else {
       escpos += `Mesa: ${order.table.name}\n`;
     }
     escpos += `Fecha: ${order.dateKey}\n`;
     escpos += '----------------------\n';
-    
+
     order.items.forEach((item) => {
       escpos += `${item.quantity} x ${item.product.name}`;
-      if (item.note) escpos += ` | Nota: ${item.note}`;
+      if (item.note) {
+        escpos += ` | Nota: ${item.note}`;
+      }
       escpos += '\n';
     });
-
 
     escpos += '----------------------\n';
     escpos += '\n\n\n\n';
@@ -217,8 +142,9 @@ export class PrintingService {
     return escpos;
   }
 
-  // 💰 FACTURA / RECIBO
-  private buildInvoiceEscpos(data: InvoiceDTO & { isDelivery?: boolean; deliveryAddress?: string }): string {
+  private buildInvoiceEscpos(
+    data: InvoiceDTO & { isDelivery?: boolean; deliveryAddress?: string },
+  ): string {
     const hasCutter = process.env.PRINTER_HAS_CUTTER === 'true';
 
     let escpos = '';
@@ -231,7 +157,7 @@ export class PrintingService {
     if (data.isDelivery) {
       escpos += 'DELIVERY\n';
       if (data.deliveryAddress) {
-        escpos += `Dirección:\n${data.deliveryAddress}\n`;
+        escpos += `Direccion:\n${data.deliveryAddress}\n`;
       }
     } else {
       escpos += `Mesa: ${data.table}\n`;
@@ -240,11 +166,11 @@ export class PrintingService {
 
     data.items.forEach((item) => {
       const total = item.qty * item.price;
-      
+
       escpos += `${item.qty} x ${item.name}\n`;
       escpos += `   ${total.toFixed(2)}\n`;
     });
-    
+
     escpos += '----------------------\n';
 
     if (typeof data.subtotal === 'number' && data.tax && data.tax > 0) {
@@ -265,7 +191,6 @@ export class PrintingService {
     return escpos;
   }
 
-  // 🍳 PREVIEW + ESC/POS cocina
   async kitchenTicket(orderId: string) {
     const order: OrderWithItems = await this.prisma.order.findUniqueOrThrow({
       where: { id: orderId },
@@ -283,27 +208,25 @@ export class PrintingService {
     }
 
     const printable = validationErrors.length === 0;
-
     const escpos = printable ? this.buildTicket('kitchen', order) : '';
 
     const previewLines = [
-      `          COCINA`,
+      '          COCINA',
       `        COMANDA #${String(order.dailySequence).padStart(3, '0')}\n`,
-      order.isDelivery && order.table.name =="Delivery"
-      ? `DELIVERY`
-      : !order.isDelivery ? `Mesa: ${order.table.name}`
-      : `**PEDIDO PARA LLEVAR** \nMesa: ${order.table.name}`,
-      ,
+      order.isDelivery && order.table.name == 'Delivery'
+        ? 'DELIVERY'
+        : !order.isDelivery
+          ? `Mesa: ${order.table.name}`
+          : `**PEDIDO PARA LLEVAR** \nMesa: ${order.table.name}`,
+      undefined,
       `Fecha: ${order.dateKey}`,
-        
       '----------------------',
-      
       ...order.items.map(
         (item) =>
           `${item.quantity} x ${item.product.name}\n${item.note ? `Nota: ${item.note}` : ''}`,
       ),
       '----------------------',
-    ];
+    ].filter(Boolean);
 
     return {
       orderId: order.id,
@@ -316,11 +239,10 @@ export class PrintingService {
     };
   }
 
-  // 💰 FACTURA POR MESA
   async simpleInvoiceByTable(tableId: string) {
     const ordersWhere = await this.getCurrentTableUnpaidWhere(tableId);
 
-    const orders = await this.prisma.order.findMany({
+    const orders = (await this.prisma.order.findMany({
       where: ordersWhere,
       orderBy: { createdAt: 'asc' },
       select: {
@@ -358,20 +280,15 @@ export class PrintingService {
           },
         },
       },
-    }) as any[];
+    })) as any[];
 
     if (!orders.length) {
       throw new NotFoundException('No open orders for table');
     }
 
     const tableName = orders[0].table.name;
-    const items = orders.flatMap((o) => o.items);
-
-    const subtotal = items.reduce(
-      (sum, i) => sum + Number(i.unitPrice) * i.quantity,
-      0,
-    );
-
+    const items = orders.flatMap((order) => order.items);
+    const subtotal = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
     const total = subtotal;
 
     const isDelivery = orders[0].isDelivery;
@@ -393,8 +310,7 @@ export class PrintingService {
     const previewLines = [
       'LA CASONA',
       isDelivery ? 'DELIVERY' : `Mesa: ${tableName}`,
-      isDelivery && deliveryAddress ? `Dirección: ${deliveryAddress}` : undefined,
-      !isDelivery ? undefined : undefined, // solo para mantener el orden
+      isDelivery && deliveryAddress ? `Direccion: ${deliveryAddress}` : undefined,
       '----------------------',
       ...data.items.flatMap((item) => [
         `${item.qty} x ${item.name}`,
@@ -464,8 +380,7 @@ export class PrintingService {
     const previewLines = [
       'LA CASONA',
       isDelivery ? 'DELIVERY' : `Mesa: ${order.table.name}`,
-      isDelivery && deliveryAddress ? `Dirección: \n ${deliveryAddress}` : undefined,
-      isDelivery ? undefined : undefined, // solo para mantener el orden
+      isDelivery && deliveryAddress ? `Direccion:\n ${deliveryAddress}` : undefined,
       `Comanda #${String(order.dailySequence).padStart(3, '0')}`,
       '----------------------',
       ...data.items.flatMap((item) => [

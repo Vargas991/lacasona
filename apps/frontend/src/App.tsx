@@ -199,6 +199,10 @@ function App() {
         onCloseTable={appData.closeTable}
         onPreviewTable={appData.getCashPreview}
         onPrintInvoice={printInvoice}
+        onLoadActiveCashSession={appData.getActiveCashSession}
+        onOpenCashSession={appData.openCashSession}
+        onCloseCashSession={appData.closeCashSession}
+        onCalculateCashChange={appData.calculateCashChange}
         onHistorySearch={loadOrderHistory}
         onReprintKitchen={reprintKitchenTicket}
         onPrintOrderReceipt={printOrderReceipt}

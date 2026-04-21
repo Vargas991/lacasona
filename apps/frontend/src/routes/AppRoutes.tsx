@@ -3,12 +3,15 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import {
   Category,
   CashPreview,
+  CashChangeQuote,
+  CashSessionSummary,
   DashboardStats,
   KitchenTicketPreview,
   Order,
   OrderHistoryRecord,
   OrderItem,
   OrderStatus,
+  PaymentCurrency,
   PaymentMethod,
   Product,
   RestaurantTable,
@@ -60,15 +63,44 @@ interface Props {
   onChangeStatus: (tableId: string, status: TableStatus) => Promise<void>;
   onDeleteTable: (tableId: string) => Promise<void>;
   onSetStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  onCloseTable: (tableId: string, method: PaymentMethod) => Promise<void>;
+  onCloseTable: (payload: {
+    tableId: string;
+    method: PaymentMethod;
+    tenderedCurrency?: PaymentCurrency;
+    tenderedAmount?: number;
+    changeCurrency?: PaymentCurrency;
+    registerInCashSession?: boolean;
+    note?: string;
+  }) => Promise<void>;
   onPreviewTable: (tableId: string) => Promise<CashPreview>;
   onPrintInvoice: (tableId: string) => Promise<void>;
+  onLoadActiveCashSession: () => Promise<CashSessionSummary | null>;
+  onOpenCashSession: (payload: {
+    openingCop: number;
+    openingBs: number;
+    openingUsd: number;
+    openingNote?: string;
+  }) => Promise<CashSessionSummary>;
+  onCloseCashSession: (payload: {
+    sessionId: string;
+    countedCop?: number;
+    countedBs?: number;
+    countedUsd?: number;
+    closingNote?: string;
+  }) => Promise<void>;
+  onCalculateCashChange: (payload: {
+    totalAmount: number;
+    totalCurrency: PaymentCurrency;
+    tenderedAmount: number;
+    tenderedCurrency: PaymentCurrency;
+    changeCurrency?: PaymentCurrency;
+  }) => Promise<CashChangeQuote>;
   onHistorySearch: (filters: {
     from?: string;
     to?: string;
     tableId?: string;
     status?: OrderStatus | '';
-    paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | '';
+    paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA' | '';
   }) => Promise<void>;
   onReprintKitchen: (orderId: string) => Promise<KitchenTicketPreview | null>;
   onPrintOrderReceipt: (orderId: string) => Promise<void>;
@@ -129,6 +161,10 @@ export function AppRoutes(props: Props) {
               onCloseTable={props.onCloseTable}
               onPreviewTable={props.onPreviewTable}
               onPrintInvoice={props.onPrintInvoice}
+              onLoadActiveCashSession={props.onLoadActiveCashSession}
+              onOpenCashSession={props.onOpenCashSession}
+              onCloseCashSession={props.onCloseCashSession}
+              onCalculateCashChange={props.onCalculateCashChange}
             />
           }
         />

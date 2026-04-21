@@ -100,7 +100,7 @@ interface HistoryFilters {
   to?: string;
   tableId?: string;
   status?: OrderStatus | '';
-  paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | '';
+  paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA' | '';
 }
 
 interface Props {
@@ -126,21 +126,23 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   READY: 'Listo',
   DELIVERED: 'Entregado',
 };
-const PAYMENT_GROUP_OPTIONS: Array<'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | ''> = [
+const PAYMENT_GROUP_OPTIONS: Array<'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA' | ''> = [
   '',
   'COP',
   'BS',
   'USD',
   'ZELLE',
   'CARD',
+  'BANCOLOMBIA',
 ];
 
-const PAYMENT_GROUP_LABEL: Record<'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD', string> = {
+const PAYMENT_GROUP_LABEL: Record<'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA', string> = {
   COP: 'COP',
   BS: 'Bolivares (POS / Pago movil)',
   USD: 'Dolares',
   ZELLE: 'Zelle',
   CARD: 'Tarjeta',
+  BANCOLOMBIA: 'Bancolombia',
 };
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
@@ -152,6 +154,7 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   MOBILE_PAYMENT: 'Bolivares (POS / Pago movil)',
   USD: 'Dolares',
   ZELLE: 'Zelle',
+  BANCOLOMBIA: 'Bancolombia',
 };
 
 function dateToInput(date: Date) {
@@ -526,7 +529,7 @@ export function OrderHistoryPanel({
             </p>
 
             <div className="history-actions">
-              {/* <button
+              <button
                 type="button"
                 onClick={async () => {
                   setReprintLoading(true);
@@ -564,7 +567,7 @@ export function OrderHistoryPanel({
                 disabled={receiptLoading}
               >
                 {receiptLoading ? 'Procesando...' : 'Reimprimir recibo'}
-              </button> */}
+              </button>
               <button
                 type="button"
                 onClick={() => printOrderReceiptInBrowser(selectedOrder)}

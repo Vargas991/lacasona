@@ -16,7 +16,7 @@ interface Props {
     to?: string;
     tableId?: string;
     status?: OrderStatus | '';
-    paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | '';
+    paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA' | '';
   }) => Promise<void>;
   onReprint: (orderId: string) => Promise<KitchenTicketPreview | null>;
   onPrintKitchenTicket: (orderId: string) => Promise<void>;

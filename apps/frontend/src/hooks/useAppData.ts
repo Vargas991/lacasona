@@ -3,12 +3,15 @@ import { api } from '../api';
 import { loadOrderDrafts, saveOrderDrafts } from '../store/orderDrafts';
 import {
   Category,
+  CashChangeQuote,
   CashPreview,
+  CashSessionSummary,
   KitchenTicketPreview,
   Order,
   OrderHistoryRecord,
   OrderItem,
   OrderStatus,
+  PaymentCurrency,
   PaymentMethod,
   Product,
   RestaurantTable,
@@ -21,7 +24,7 @@ interface HistoryFilters {
   to?: string;
   tableId?: string;
   status?: OrderStatus | '';
-  paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | '';
+  paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA' | '';
 }
 
 interface UseAppDataOptions {
@@ -200,16 +203,115 @@ export function useAppData({
     await loadRouteData('/kds');
   };
 
-  const closeTable = async (tableId: string, method: PaymentMethod) => {
+  const closeTable = async (payload: {
+    tableId: string;
+    method: PaymentMethod;
+    tenderedCurrency?: PaymentCurrency;
+    tenderedAmount?: number;
+    changeCurrency?: PaymentCurrency;
+    registerInCashSession?: boolean;
+    note?: string;
+  }) => {
     if (!token || !session) {
       return;
     }
     await api('/cash/close-table', 'POST', token, {
-      tableId,
+      tableId: payload.tableId,
       cashierId: session.id,
-      method,
+      method: payload.method,
+      tenderedCurrency: payload.tenderedCurrency,
+      tenderedAmount: payload.tenderedAmount,
+      changeCurrency: payload.changeCurrency,
+      registerInCashSession: payload.registerInCashSession,
+      note: payload.note,
     });
     await loadRouteData('/caja');
+  };
+
+  const getActiveCashSession = async (): Promise<CashSessionSummary | null> => {
+    if (!token || !session) {
+      return null;
+    }
+
+    return api<CashSessionSummary | null>(`/cash/sessions/active/${session.id}`, 'GET', token);
+  };
+
+  const openCashSession = async (payload: {
+    openingCop: number;
+    openingBs: number;
+    openingUsd: number;
+    openingNote?: string;
+  }): Promise<CashSessionSummary> => {
+    if (!token || !session) {
+      throw new Error('No session');
+    }
+
+    const openingEntries: Array<{ currency: PaymentCurrency; amount: number }> = [
+      { currency: 'COP', amount: payload.openingCop },
+      { currency: 'BS', amount: payload.openingBs },
+      { currency: 'USD', amount: payload.openingUsd },
+    ];
+    const primaryEntry = openingEntries.find((entry) => entry.amount > 0) || openingEntries[0];
+
+    const result = await api<CashSessionSummary>('/cash/sessions/open', 'POST', token, {
+      cashierId: session.id,
+      openingCurrency: primaryEntry.currency,
+      openingAmount: primaryEntry.amount,
+      openingNote: payload.openingNote,
+    });
+
+    const additionalEntries = openingEntries.filter(
+      (entry) => entry.currency !== primaryEntry.currency && entry.amount > 0,
+    );
+
+    for (const entry of additionalEntries) {
+      await api(`/cash/sessions/${result.session.id}/movements`, 'POST', token, {
+        createdById: session.id,
+        type: 'OPENING',
+        currency: entry.currency,
+        amount: entry.amount,
+        note: payload.openingNote || 'Apertura de caja',
+      });
+    }
+
+    const refreshed = await api<CashSessionSummary>(`/cash/sessions/${result.session.id}`, 'GET', token);
+    await loadRouteData('/caja');
+    return refreshed;
+  };
+
+  const closeCashSession = async (payload: {
+    sessionId: string;
+    countedCop?: number;
+    countedBs?: number;
+    countedUsd?: number;
+    closingNote?: string;
+  }) => {
+    if (!token || !session) {
+      throw new Error('No session');
+    }
+
+    await api(`/cash/sessions/${payload.sessionId}/close`, 'POST', token, {
+      closedById: session.id,
+      countedCop: payload.countedCop,
+      countedBs: payload.countedBs,
+      countedUsd: payload.countedUsd,
+      closingNote: payload.closingNote,
+    });
+    await loadRouteData('/caja');
+  };
+
+  const calculateCashChange = async (payload: {
+    totalAmount: number;
+    totalCurrency: PaymentCurrency;
+    tenderedAmount: number;
+    tenderedCurrency: PaymentCurrency;
+    changeCurrency?: PaymentCurrency;
+  }): Promise<CashChangeQuote> => {
+    if (!token) {
+      throw new Error('No token');
+    }
+
+    return api<CashChangeQuote>('/cash/calculate-change', 'POST', token, payload);
   };
 
   const getCashPreview = async (tableId: string): Promise<CashPreview> => {
@@ -477,6 +579,10 @@ export function useAppData({
     createOrder,
     setOrderStatus,
     closeTable,
+    getActiveCashSession,
+    openCashSession,
+    closeCashSession,
+    calculateCashChange,
     getCashPreview,
     createTable,
     changeTableStatus,

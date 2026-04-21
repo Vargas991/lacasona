@@ -12,7 +12,22 @@ export type PaymentMethod =
   | 'POS'
   | 'MOBILE_PAYMENT'
   | 'USD'
-  | 'ZELLE';
+  | 'ZELLE'
+  | 'BANCOLOMBIA';
+
+export type PaymentCurrency = 'COP' | 'BS' | 'USD';
+
+export type CashSessionStatus = 'OPEN' | 'CLOSED';
+
+export type CashMovementType =
+  | 'OPENING'
+  | 'SALE_TENDERED'
+  | 'CHANGE_GIVEN'
+  | 'MANUAL_INCOME'
+  | 'EXPENSE'
+  | 'EXCHANGE_IN'
+  | 'EXCHANGE_OUT'
+  | 'CLOSING_ADJUSTMENT';
 
 export interface UserSession {
   id: string;
@@ -196,4 +211,74 @@ export interface DashboardStats {
     totalBs: number;
     totalUsd: number;
   }>;
+}
+
+export interface CashMovementRecord {
+  id: string;
+  cashSessionId: string;
+  createdById: string;
+  tableId?: string | null;
+  orderId?: string | null;
+  paymentId?: string | null;
+  type: CashMovementType;
+  currency: PaymentCurrency;
+  amount: number;
+  paymentMethod?: PaymentMethod | null;
+  relatedCurrency?: PaymentCurrency | null;
+  relatedAmount?: number | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface CashSessionSummary {
+  session: {
+    id: string;
+    cashierId: string;
+    status: CashSessionStatus;
+    openingCurrency: PaymentCurrency;
+    openingAmount: number;
+    openingNote?: string | null;
+    openedAt: string;
+    closedAt?: string | null;
+    closingNote?: string | null;
+  };
+  expectedBalances: Record<PaymentCurrency, number>;
+  countedBalances: Record<PaymentCurrency, number | null>;
+  differences: Record<PaymentCurrency, number | null>;
+  salesByCurrency: Record<PaymentCurrency, { count: number; total: number }>;
+  movementTotals: {
+    inflows: Record<PaymentCurrency, number>;
+    outflows: Record<PaymentCurrency, number>;
+    byType: Record<string, number>;
+  };
+  movements: CashMovementRecord[];
+  paymentsCount: number;
+}
+
+export interface CashChangeQuote {
+  total: {
+    amount: number;
+    currency: PaymentCurrency;
+    copEquivalent: number;
+  };
+  tendered: {
+    amount: number;
+    currency: PaymentCurrency;
+    copEquivalent: number;
+  };
+  change: {
+    copEquivalent: number;
+    dueInTenderedCurrency: {
+      amount: number;
+      currency: PaymentCurrency;
+    };
+    deliverInCurrency: {
+      amount: number;
+      currency: PaymentCurrency;
+    };
+  };
+  exchangeRates: {
+    copToBsDivisor: number;
+    copToUsdDivisor: number;
+  };
 }
