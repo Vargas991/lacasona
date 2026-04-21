@@ -118,6 +118,40 @@ a:hover {
   gap: 0.5rem;
 }
 
+.password-field {
+  display: flex;
+  flex: 1;
+  gap: 0.3rem;
+
+}
+.password-field input {
+  flex: 1;
+}
+
+.password-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding-inline: 0.7rem;
+}
+
+.password-toggle svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.form-error {
+  margin: 0;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
 input,
 button {
   padding: 0.7rem;
@@ -481,6 +515,102 @@ button:hover {
   gap: 0.6rem;
 }
 
+.cash-session-card {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem;
+  background: #fffefb;
+  margin-bottom: 1rem;
+}
+
+.cash-session-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.cash-session-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cash-session-header p {
+  margin: 0.25rem 0 0;
+}
+
+.cash-session-pill {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  background: #f5ede0;
+  font-size: 0.9rem;
+}
+
+.cash-session-open-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.4fr auto;
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.cash-session-open-help {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.cash-session-open-form label,
+.cash-payment-form-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.cash-session-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+
+.cash-session-summary-card {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: linear-gradient(180deg, #fffaf0, #fffefb);
+}
+
+.cash-session-summary-card span {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.cash-session-summary-card small {
+  color: var(--ink-soft);
+}
+
+.cash-session-balances,
+.cash-change-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.7rem;
+}
+
+.cash-session-balances article,
+.cash-change-summary article {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem;
+  background: #fff8ed;
+}
+
 .cash-item {
   display: flex;
   justify-content: space-between;
@@ -495,6 +625,49 @@ button:hover {
   margin-top: 0.9rem;
   border-top: 1px solid var(--line);
   padding-top: 0.9rem;
+}
+
+.cash-preview-hero {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(140px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+
+.cash-preview-total-card,
+.cash-preview-summary-card {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: #fffefb;
+}
+
+.cash-preview-total-card {
+  background: linear-gradient(135deg, #f7e9c6, #fff7e7);
+  border-color: #d6b164;
+}
+
+.cash-preview-total-card span,
+.cash-preview-summary-card span {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cash-preview-total-card strong {
+  font-size: 1.8rem;
+  line-height: 1.1;
+}
+
+.cash-preview-summary-card strong {
+  font-size: 1.1rem;
+}
+
+.cash-preview-total-card small {
+  color: var(--ink-soft);
 }
 
 .cash-detail-table {
@@ -529,6 +702,7 @@ button:hover {
 .cash-actions {
   display: flex;
   gap: 0.6rem;
+  align-items: center;
 }
 
 .cash-payment-selector {
@@ -547,7 +721,141 @@ button:hover {
 }
 
 .cash-actions-grid {
+  display: flex;
   flex-wrap: wrap;
+}
+
+.cash-warning {
+  color: #b91c1c;
+  font-weight: 700;
+  margin: 0;
+}
+
+.cash-payment-modal {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.cash-payment-modal p {
+  margin: 0;
+}
+
+.cash-payment-hero {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.cash-payment-hero-card {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: #fffefb;
+}
+
+.cash-payment-hero-card span {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cash-payment-hero-card strong {
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.cash-payment-hero-card.highlight {
+  background: linear-gradient(135deg, #f7e9c6, #fff7e7);
+  border-color: #d6b164;
+}
+
+.cash-payment-hero-card.success {
+  background: linear-gradient(135deg, #e6f5e6, #f8fff8);
+  border-color: #7eb47e;
+}
+
+.cash-payment-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.cash-amount-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.cash-amount-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.cash-inline-action {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cash-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 600;
+}
+
+.cash-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+.cash-payment-note {
+  grid-column: 1 / -1;
+}
+
+.cash-quick-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.cash-quick-amounts button {
+  padding: 0.45rem 0.75rem;
+}
+
+.cash-feedback-slot {
+  min-height: 1.2rem;
+}
+
+.cash-change-slot {
+  min-height: 9.5rem;
+  display: grid;
+  align-content: start;
+}
+
+.cash-change-loading {
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: block;
+}
+
+.input-error {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.15);
 }
 
 .cash-conversion-grid {
@@ -918,6 +1226,20 @@ button:hover {
 
   .cash-conversion-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cash-preview-hero,
+  .cash-payment-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .cash-session-open-form,
+  .cash-payment-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cash-session-header {
+    align-items: flex-start;
   }
 
   .history-filters {

@@ -7,7 +7,7 @@ interface HistoryFilters {
   to?: string;
   tableId?: string;
   status?: OrderStatus | '';
-  paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | '';
+  paymentGroup?: 'COP' | 'BS' | 'USD' | 'ZELLE' | 'CARD' | 'BANCOLOMBIA' | '';
 }
 
 export function useOrderHistory(token?: string) {

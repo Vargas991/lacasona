@@ -125,6 +125,7 @@ export class OrdersService {
         USD: [PaymentMethod.USD],
         ZELLE: [PaymentMethod.ZELLE],
         CARD: [PaymentMethod.CARD],
+        BANCOLOMBIA: [PaymentMethod.BANCOLOMBIA],
       };
 
       const methods = groupMap[filters.paymentGroup];
