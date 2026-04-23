@@ -72,10 +72,50 @@ var
   DatabasePage: TInputQueryWizardPage;
   NetworkPage: TInputQueryWizardPage;
   PrinterPage: TInputQueryWizardPage;
+  SeedPage: TInputOptionWizardPage;
   PrinterType: String;
+  PrevEnvPath: String;
+  PrevDatabaseUrl, PrevJwtSecret: String;
 
-procedure InitializeWizard;
+function ReadEnvValue(const FilePath, Key: String): String;
+var
+  Lines: TArrayOfString;
+  I, P: Integer;
+  Line, K, V: String;
 begin
+  Result := '';
+  if not FileExists(FilePath) then
+    Exit;
+
+  LoadStringsFromFile(FilePath, Lines);
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Trim(Lines[I]);
+    if (Line = '') or (Pos('#', Line) = 1) then
+      Continue;
+
+    P := Pos('=', Line);
+    if P > 0 then
+    begin
+      K := Trim(Copy(Line, 1, P - 1));
+      V := Trim(Copy(Line, P + 1, Length(Line)));
+
+      if K = Key then
+      begin
+        Result := V;
+        Exit;
+      end;
+    end;
+  end;
+end;
+
+procedure InitializeWizard();
+begin
+  // Leer .env previo si existe
+  PrevEnvPath := ExpandConstant('{localappdata}\{#MyAppDirName}\apps\backend\.env');
+  PrevDatabaseUrl := ReadEnvValue(PrevEnvPath, 'DATABASE_URL');
+  PrevJwtSecret := ReadEnvValue(PrevEnvPath, 'JWT_SECRET');
+
   DatabasePage := CreateInputQueryPage(
     wpSelectTasks,
     'Base de datos y seguridad',
@@ -86,8 +126,12 @@ begin
   DatabasePage.Add('DATABASE_URL', False);
   DatabasePage.Add('JWT_SECRET (dejar vacio para autogenerar)', False);
 
-  DatabasePage.Values[0] := 'postgresql://postgres:clave@localhost:5432/lacasona';
-  DatabasePage.Values[1] := '';
+  if PrevDatabaseUrl <> '' then
+    DatabasePage.Values[0] := PrevDatabaseUrl
+  else
+    DatabasePage.Values[0] := 'postgresql://postgres:clave@localhost:5432/lacasona';
+
+  DatabasePage.Values[1] := PrevJwtSecret;
 
   NetworkPage := CreateInputQueryPage(
     DatabasePage.ID,
@@ -104,8 +148,19 @@ begin
   NetworkPage.Values[1] := '4173';
   NetworkPage.Values[2] := 'http://192.168.1.3:3000';
 
-  PrinterPage := CreateInputQueryPage(
+  SeedPage := CreateInputOptionPage(
     NetworkPage.ID,
+    'Inicialización de datos',
+    'Seeds',
+    '¿Deseas ejecutar el seed inicial? Recomendado solo en instalaciones nuevas, no en actualizaciones',
+    False,
+    False
+  );
+  SeedPage.Add('Ejecutar seed inicial');
+  SeedPage.Values[0] := True;
+
+  PrinterPage := CreateInputQueryPage(
+    SeedPage.ID,
     'Impresora',
     'Configura la impresora de tickets',
     'Selecciona el tipo de impresora y, si es de red, indica IP y puerto.'
@@ -118,7 +173,7 @@ begin
   PrinterPage.Values[2] := '9100';
 end;
 
-function GetInstallScriptParams(Param: string): string;
+function GetInstallScriptParams(Param: String): String;
 begin
   Result :=
     '-DatabaseUrl "' + DatabasePage.Values[0] + '" ' +
@@ -128,12 +183,19 @@ begin
     '-BackupDir "' + ExpandConstant('{localappdata}\{#MyAppDirName}\backups') + '" ' +
     '-PrinterType "' + PrinterPage.Values[0] + '"';
 
-  if LowerCase(Trim(PrinterPage.Values[0])) = 'network' then begin
+  if LowerCase(Trim(PrinterPage.Values[0])) = 'network' then
+  begin
     Result := Result + ' -PrinterIp "' + PrinterPage.Values[1] + '" -PrinterPort ' + PrinterPage.Values[2];
   end;
 
-  if Trim(DatabasePage.Values[1]) <> '' then begin
+  if Trim(DatabasePage.Values[1]) <> '' then
+  begin
     Result := Result + ' -JwtSecret "' + DatabasePage.Values[1] + '"';
+  end;
+
+  if not SeedPage.Values[0] then
+  begin
+    Result := Result + ' -SkipSeed';
   end;
 end;
 
@@ -141,50 +203,63 @@ function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
 
-  if CurPageID = DatabasePage.ID then begin
-    if Trim(DatabasePage.Values[0]) = '' then begin
+  if CurPageID = DatabasePage.ID then
+  begin
+    if Trim(DatabasePage.Values[0]) = '' then
+    begin
       MsgBox('DATABASE_URL es obligatorio.', mbError, MB_OK);
       Result := False;
-      exit;
+      Exit;
     end;
   end;
 
-  if CurPageID = NetworkPage.ID then begin
-    if Trim(NetworkPage.Values[0]) = '' then begin
+  if CurPageID = NetworkPage.ID then
+  begin
+    if Trim(NetworkPage.Values[0]) = '' then
+    begin
       MsgBox('Debes indicar el puerto backend.', mbError, MB_OK);
       Result := False;
-      exit;
+      Exit;
     end;
 
-    if Trim(NetworkPage.Values[1]) = '' then begin
+    if Trim(NetworkPage.Values[1]) = '' then
+    begin
       MsgBox('Debes indicar el puerto frontend.', mbError, MB_OK);
       Result := False;
-      exit;
+      Exit;
     end;
 
-    if Trim(NetworkPage.Values[2]) = '' then begin
+    if Trim(NetworkPage.Values[2]) = '' then
+    begin
       MsgBox('Debes indicar la URL API.', mbError, MB_OK);
       Result := False;
-      exit;
+      Exit;
     end;
   end;
 
-  if CurPageID = PrinterPage.ID then begin
-    if Trim(PrinterPage.Values[0]) = '' then begin
+  if CurPageID = PrinterPage.ID then
+  begin
+    if Trim(PrinterPage.Values[0]) = '' then
+    begin
       MsgBox('Debes indicar el tipo de impresora (network o usb).', mbError, MB_OK);
       Result := False;
-      exit;
+      Exit;
     end;
-    if LowerCase(Trim(PrinterPage.Values[0])) = 'network' then begin
-      if Trim(PrinterPage.Values[1]) = '' then begin
+
+    if LowerCase(Trim(PrinterPage.Values[0])) = 'network' then
+    begin
+      if Trim(PrinterPage.Values[1]) = '' then
+      begin
         MsgBox('Debes indicar la IP de la impresora de red.', mbError, MB_OK);
         Result := False;
-        exit;
+        Exit;
       end;
-      if Trim(PrinterPage.Values[2]) = '' then begin
+
+      if Trim(PrinterPage.Values[2]) = '' then
+      begin
         MsgBox('Debes indicar el puerto de la impresora de red.', mbError, MB_OK);
         Result := False;
-        exit;
+        Exit;
       end;
     end;
   end;

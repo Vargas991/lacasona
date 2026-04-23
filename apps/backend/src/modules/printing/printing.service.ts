@@ -112,10 +112,16 @@ export class PrintingService {
 
     escpos += '\x1B\x40';
     escpos += '\x1B\x45\x01';
+    escpos += '\x1D\x21\x11';
     escpos += '\n*** COCINA ***\n';
+    escpos += '\x1D\x21\x00';
     escpos += '\x1B\x45\x00';
 
+    escpos += '\x1B\x45\x01';
+    escpos += '\x1D\x21\x10';
     escpos += `Comanda: #${String(order.dailySequence).padStart(3, '0')}\n`;
+    escpos += '\x1D\x21\x00';
+    escpos += '\x1B\x45\x00';
     if (order.isDelivery) {
       escpos += 'DELIVERY\n';
     } else {
@@ -125,11 +131,12 @@ export class PrintingService {
     escpos += '----------------------\n';
 
     order.items.forEach((item) => {
-      escpos += `${item.quantity} x ${item.product.name}`;
+      escpos += '\x1D\x21\x10';
+      escpos += `${item.quantity} x ${item.product.name}\n`;
+      escpos += '\x1D\x21\x00';
       if (item.note) {
-        escpos += ` | Nota: ${item.note}`;
+        escpos += `Nota: ${item.note}\n`;
       }
-      escpos += '\n';
     });
 
     escpos += '----------------------\n';
