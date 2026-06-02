@@ -44,13 +44,9 @@ export function SalaPage({
   return (
     <>
       <section className="layout-two">
-        <TableGrid
-          tables={tables}
-          onSelect={setSelectedTable}
-          canEditLayout={sessionRole === 'ADMIN'}
-          onUpdateLayout={onUpdateLayout}
-        />
-        <OrderPanel
+        {
+          selectedTable ? 
+          <OrderPanel
           table={selectedTable}
           tables={tables}
           products={products}
@@ -60,7 +56,17 @@ export function SalaPage({
           onChangeItems={onChangeItems}
           onCreateOrder={onCreateOrder}
           onPrintKitchenTicket={onPrintKitchenTicket}
+          setSelectedTable={setSelectedTable}
         />
+          :  <TableGrid
+          tables={tables}
+          onSelect={setSelectedTable}
+          canEditLayout={sessionRole === 'ADMIN'}
+          onUpdateLayout={onUpdateLayout}
+        />
+        }
+        
+        
       </section>
       {sessionRole === 'ADMIN' && (
         <AdminTablesPanel

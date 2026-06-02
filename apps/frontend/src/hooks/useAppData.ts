@@ -191,7 +191,6 @@ export function useAppData({
     }
 
     setTableDrafts((current) => ({ ...current, [tableId]: [] }));
-    await loadRouteData('/sala');
     return preview;
   };
 
@@ -211,6 +210,7 @@ export function useAppData({
     changeCurrency?: PaymentCurrency;
     registerInCashSession?: boolean;
     note?: string;
+    orderIds?: string[];
   }) => {
     if (!token || !session) {
       return;
@@ -224,6 +224,7 @@ export function useAppData({
       changeCurrency: payload.changeCurrency,
       registerInCashSession: payload.registerInCashSession,
       note: payload.note,
+      orderIds: payload.orderIds,
     });
     await loadRouteData('/caja');
   };
@@ -296,6 +297,35 @@ export function useAppData({
       countedBs: payload.countedBs,
       countedUsd: payload.countedUsd,
       closingNote: payload.closingNote,
+    });
+    await loadRouteData('/caja');
+  };
+
+  const createCashMovement = async (payload: {
+    sessionId: string;
+    type: 'EXPENSE' | 'MANUAL_INCOME' | 'EXCHANGE_IN' | 'EXCHANGE_OUT' | 'CLOSING_ADJUSTMENT';
+    currency: PaymentCurrency;
+    amount: number;
+    note?: string;
+    tableId?: string;
+    relatedCurrency?: PaymentCurrency;
+    relatedAmount?: number;
+    paymentMethod?: PaymentMethod;
+  }) => {
+    if (!token || !session) {
+      throw new Error('No session');
+    }
+
+    await api(`/cash/sessions/${payload.sessionId}/movements`, 'POST', token, {
+      createdById: session.id,
+      type: payload.type,
+      currency: payload.currency,
+      amount: payload.amount,
+      note: payload.note,
+      tableId: payload.tableId,
+      relatedCurrency: payload.relatedCurrency,
+      relatedAmount: payload.relatedAmount,
+      paymentMethod: payload.paymentMethod,
     });
     await loadRouteData('/caja');
   };
@@ -501,17 +531,25 @@ export function useAppData({
     await loadRouteData('/menu');
   };
 
-  const createCategory = async (name: string, isPackaging?: boolean) => {
+  const createCategory = async (
+    name: string,
+    isPackaging?: boolean,
+    hasSideDish?: boolean,
+  ) => {
     if (!token) {
       return;
     }
-    await api('/products/categories', 'POST', token, { name, isPackaging: Boolean(isPackaging) });
+    await api('/products/categories', 'POST', token, {
+      name,
+      isPackaging: Boolean(isPackaging),
+      hasSideDish: Boolean(hasSideDish),
+    });
     await loadRouteData('/menu');
   };
 
   const updateCategory = async (
     id: string,
-    payload: { name?: string; isPackaging?: boolean },
+    payload: { name?: string; isPackaging?: boolean; hasSideDish?: boolean },
   ) => {
     if (!token) {
       return;
@@ -582,6 +620,7 @@ export function useAppData({
     getActiveCashSession,
     openCashSession,
     closeCashSession,
+    createCashMovement,
     calculateCashChange,
     getCashPreview,
     createTable,

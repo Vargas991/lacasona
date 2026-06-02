@@ -23,7 +23,9 @@ export function TableList({ tables, onSelect }: Props) {
     acc[zoneKey].push(table);
     return acc;
   }, {});
-  const zones = Object.entries(groupedByZone).sort(([a], [b]) => a.localeCompare(b));
+  const zones = Object.entries(groupedByZone)
+    .map(([zoneName, zoneTables]) => [zoneName, zoneTables.sort((a, b) => a.name.localeCompare(b.name))] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <section className="panel">

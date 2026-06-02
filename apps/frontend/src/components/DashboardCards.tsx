@@ -133,6 +133,17 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
     { quantity: 0, totalCop: 0, totalBs: 0, totalUsd: 0 },
   );
 
+  const outflowTotals = stats.cashSessions
+    .flatMap((session) => session.movements)
+    .filter((movement) => movement.type === 'EXPENSE')
+    .reduce(
+      (acc, movement) => {
+        acc[movement.currency] = acc[movement.currency] + movement.amount;
+        return acc;
+      },
+      { COP: 0, BS: 0, USD: 0 },
+    );
+
   const exportToExcel = async () => {
     setExporting(true);
     try {
@@ -172,10 +183,28 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
         'Total USD': Number(reportTotals.totalUsd.toFixed(2)),
       });
 
+      const cashSessionRows = stats.cashSessions.flatMap((session) =>
+        session.movements.map((movement) => ({
+          'Cierre ID': session.id,
+          'Cajero': session.cashierName,
+          'Cerrado por': session.closedByName || '',
+          'Cerrado en': session.closedAt || '',
+          'Tipo movimiento': movement.type,
+          'Moneda': movement.currency,
+          'Monto': Number(movement.amount.toFixed(2)),
+          'Metodo pago': movement.paymentMethod || '',
+          'Orden ID': movement.orderId || '',
+          'Mesa ID': movement.tableId || '',
+          'Nota movimiento': movement.note || '',
+          'Creado en': movement.createdAt,
+        })),
+      );
+
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Resumen');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(paymentRows), 'Pagos');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(salesRows), 'Productos');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(cashSessionRows), 'Cierres de caja');
 
       const stamp = new Date();
       const dateStamp = `${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(
@@ -302,6 +331,12 @@ export function DashboardCards({ stats, filters, onLoadStats, onSaveExchangeRate
         <article><h4>Mesas ocupadas</h4><p>{stats.tablesOccupied}</p></article>
         <article><h4>Pedidos activos</h4><p>{stats.activeOrders}</p></article>
         <article><h4>Ingresos periodo</h4><p>COP {periodRevenue.toFixed(2)}</p></article>
+        <article>
+          <h4>Salidas registradas</h4>
+          <p>COP {outflowTotals.COP.toFixed(2)}</p>
+          <p>Bs {outflowTotals.BS.toFixed(2)}</p>
+          <p>USD {outflowTotals.USD.toFixed(2)}</p>
+        </article>
         <article><h4>Tickets periodo</h4><p>{periodTickets}</p></article>
       </div>
 

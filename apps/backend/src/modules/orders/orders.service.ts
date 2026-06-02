@@ -32,11 +32,13 @@ export class OrdersService {
       throw new BadRequestException('Cannot create order on a disabled table');
     }
 
+    // Validar solo los productId únicos
+    const uniqueProductIds = Array.from(new Set(dto.items.map((i) => i.productId)));
     const products = await this.prisma.product.findMany({
-      where: { id: { in: dto.items.map((i) => i.productId) }, isActive: true },
+      where: { id: { in: uniqueProductIds }, isActive: true },
     });
 
-    if (products.length !== dto.items.length) {
+    if (products.length !== uniqueProductIds.length) {
       throw new BadRequestException('One or more products are invalid');
     }
 
@@ -222,10 +224,6 @@ export class OrdersService {
       tableId,
       payment: null,
     };
-
-    if (lastPayment?.paidAt) {
-      where.createdAt = { gt: lastPayment.paidAt };
-    }
 
     const openOrders = await this.prisma.order.findMany({
       where,

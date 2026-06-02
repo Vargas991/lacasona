@@ -139,6 +139,64 @@ export class DashboardService {
         return a.productName.localeCompare(b.productName);
       });
 
+    const cashSessions = await this.prisma.cashSession.findMany({
+      where: { closedAt: { gte: startDate, lte: endDate } },
+      include: {
+        cashier: { select: { id: true, name: true } },
+        closedBy: { select: { id: true, name: true } },
+        movements: { orderBy: { createdAt: 'asc' } },
+        _count: { select: { payments: true } },
+      },
+      orderBy: { closedAt: 'asc' },
+    });
+
+    const cashSessionReports = cashSessions.map((session) => ({
+      id: session.id,
+      cashierId: session.cashierId,
+      cashierName: session.cashier.name,
+      closedById: session.closedById,
+      closedByName: session.closedBy?.name || null,
+      status: session.status,
+      openingCurrency: session.openingCurrency,
+      openingAmount: Number(session.openingAmount),
+      openingNote: session.openingNote,
+      openedAt: session.openedAt,
+      closedAt: session.closedAt,
+      closingNote: session.closingNote,
+      expectedBalances: {
+        COP: Number(session.expectedCopAtClose ?? 0),
+        BS: Number(session.expectedBsAtClose ?? 0),
+        USD: Number(session.expectedUsdAtClose ?? 0),
+      },
+      countedBalances: {
+        COP: session.countedCop === null ? null : Number(session.countedCop),
+        BS: session.countedBs === null ? null : Number(session.countedBs),
+        USD: session.countedUsd === null ? null : Number(session.countedUsd),
+      },
+      differences: {
+        COP: session.differenceCop === null ? null : Number(session.differenceCop),
+        BS: session.differenceBs === null ? null : Number(session.differenceBs),
+        USD: session.differenceUsd === null ? null : Number(session.differenceUsd),
+      },
+      paymentsCount: session._count.payments,
+      movements: session.movements.map((movement) => ({
+        id: movement.id,
+        cashSessionId: movement.cashSessionId,
+        createdById: movement.createdById,
+        tableId: movement.tableId,
+        orderId: movement.orderId,
+        paymentId: movement.paymentId,
+        type: movement.type,
+        currency: movement.currency,
+        amount: Number(movement.amount),
+        paymentMethod: movement.paymentMethod,
+        relatedCurrency: movement.relatedCurrency,
+        relatedAmount: movement.relatedAmount === null ? null : Number(movement.relatedAmount),
+        note: movement.note,
+        createdAt: movement.createdAt,
+      })),
+    }));
+
     return {
       tablesFree,
       tablesOccupied,
@@ -157,6 +215,7 @@ export class DashboardService {
       },
       paymentsByMethod,
       salesReport,
+      cashSessions: cashSessionReports,
     };
   }
 

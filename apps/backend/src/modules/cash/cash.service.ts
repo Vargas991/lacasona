@@ -48,6 +48,7 @@ export class CashService {
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
+        dailySequence: true,
         status: true,
         createdAt: true,
         isDelivery: true,
@@ -101,6 +102,7 @@ export class CashService {
       },
       orders: openOrders.map((order) => ({
         id: order.id,
+        dailySequence: order.dailySequence,
         status: order.status,
         createdAt: order.createdAt,
         isDelivery: order.isDelivery,
@@ -321,7 +323,27 @@ export class CashService {
       throw new NotFoundException('No open orders for table');
     }
 
-    const perOrderTotals = openOrders.map((order) => {
+    const orderIdsToClose = dto.orderIds && dto.orderIds.length ? dto.orderIds : openOrders.map((order) => order.id);
+    const selectedOrders = openOrders.filter((order) => orderIdsToClose.includes(order.id));
+
+    if (!selectedOrders.length) {
+      throw new BadRequestException('No selected orders to close');
+    }
+
+    const invalidOrderIds = dto.orderIds?.filter(
+      (orderId) => !selectedOrders.some((order) => order.id === orderId),
+    );
+    if (invalidOrderIds && invalidOrderIds.length > 0) {
+      throw new BadRequestException('Algunas cuentas seleccionadas no están abiertas o no existen');
+    }
+
+    const closeAllOrders = selectedOrders.length === openOrders.length;
+    await this.prisma.table.update({
+      where: { id: dto.tableId },
+      data: { status: closeAllOrders ? TableStatus.BILLING : TableStatus.OCCUPIED },
+    });
+
+    const perOrderTotals = selectedOrders.map((order) => {
       const subtotal = order.items.reduce(
         (sum, item) => sum + Number(item.unitPrice) * item.quantity,
         0,
@@ -442,7 +464,11 @@ export class CashService {
     });
 
     await this.ordersService.closeOrders(perOrderTotals.map((item) => item.orderId));
-    await this.tablesService.markFree(dto.tableId);
+    if (closeAllOrders) {
+      await this.tablesService.markFree(dto.tableId);
+    } else {
+      await this.tablesService.markBusy(dto.tableId);
+    }
 
     const summary = {
       tableId: dto.tableId,
@@ -752,15 +778,9 @@ export class CashService {
       select: { paidAt: true },
     });
 
-    const where: Prisma.OrderWhereInput = {
+    return {
       tableId,
       payment: null,
     };
-
-    if (lastPayment?.paidAt) {
-      where.createdAt = { gt: lastPayment.paidAt };
-    }
-
-    return where;
   }
 }

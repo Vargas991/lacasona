@@ -29,6 +29,10 @@ export class CloseAccountDto {
   registerInCashSession?: boolean;
 
   @IsOptional()
+  @IsString({ each: true })
+  orderIds?: string[];
+
+  @IsOptional()
   @IsString()
   note?: string;
 }

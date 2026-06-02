@@ -57,6 +57,7 @@ export interface Product {
     id: string;
     name: string;
     isPackaging?: boolean;
+    hasSideDish?: boolean;
   } | null;
 }
 
@@ -64,12 +65,14 @@ export interface Category {
   id: string;
   name: string;
   isPackaging?: boolean;
+  hasSideDish?: boolean;
 }
 
 export interface OrderItem {
   productId: string;
   quantity: number;
   note?: string;
+  sideDishes?: string[];
 }
 
 export interface Order {
@@ -109,6 +112,7 @@ export interface CashPreview {
   };
   orders: Array<{
     id: string;
+    dailySequence: number;
     status: string;
     createdAt: string;
     isDelivery?: boolean;
@@ -211,6 +215,7 @@ export interface DashboardStats {
     totalBs: number;
     totalUsd: number;
   }>;
+  cashSessions: CashSessionReport[];
 }
 
 export interface CashMovementRecord {
@@ -255,7 +260,44 @@ export interface CashSessionSummary {
   paymentsCount: number;
 }
 
-export interface CashChangeQuote {
+export interface CashSessionReportMovement {
+  id: string;
+  cashSessionId: string;
+  createdById: string;
+  tableId?: string | null;
+  orderId?: string | null;
+  paymentId?: string | null;
+  type: CashMovementType;
+  currency: PaymentCurrency;
+  amount: number;
+  paymentMethod?: PaymentMethod | null;
+  relatedCurrency?: PaymentCurrency | null;
+  relatedAmount?: number | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface CashSessionReport {
+  id: string;
+  cashierId: string;
+  cashierName: string;
+  closedById?: string | null;
+  closedByName?: string | null;
+  status: CashSessionStatus;
+  openingCurrency: PaymentCurrency;
+  openingAmount: number;
+  openingNote?: string | null;
+  openedAt: string;
+  closedAt?: string | null;
+  closingNote?: string | null;
+  expectedBalances: Record<PaymentCurrency, number>;
+  countedBalances: Record<PaymentCurrency, number | null>;
+  differences: Record<PaymentCurrency, number | null>;
+  paymentsCount: number;
+  movements: CashSessionReportMovement[];
+}
+
+export interface DashboardStats {
   total: {
     amount: number;
     currency: PaymentCurrency;

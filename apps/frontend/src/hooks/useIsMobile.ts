@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // Simple hook to detect if the screen is small (mobile)
-export function useIsMobile(breakpoint = 700) {
+export function useIsMobile(breakpoint = 860) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
 
   useEffect(() => {

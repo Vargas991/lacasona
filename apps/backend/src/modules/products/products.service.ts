@@ -60,6 +60,7 @@ export class ProductsService {
       data: {
         name: dto.name,
         isPackaging: Boolean(dto.isPackaging),
+        hasSideDish: Boolean(dto.hasSideDish),
       },
     });
   }
@@ -89,6 +90,7 @@ export class ProductsService {
       data: {
         name: dto.name,
         isPackaging: dto.isPackaging,
+        hasSideDish: dto.hasSideDish,
       },
     });
   }

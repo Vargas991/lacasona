@@ -71,6 +71,7 @@ interface Props {
     changeCurrency?: PaymentCurrency;
     registerInCashSession?: boolean;
     note?: string;
+    orderIds?: string[];
   }) => Promise<void>;
   onPreviewTable: (tableId: string) => Promise<CashPreview>;
   onPrintInvoice: (tableId: string) => Promise<void>;
@@ -95,6 +96,17 @@ interface Props {
     tenderedCurrency: PaymentCurrency;
     changeCurrency?: PaymentCurrency;
   }) => Promise<CashChangeQuote>;
+  onCreateCashMovement: (payload: {
+    sessionId: string;
+    type: 'EXPENSE' | 'MANUAL_INCOME' | 'EXCHANGE_IN' | 'EXCHANGE_OUT' | 'CLOSING_ADJUSTMENT';
+    currency: PaymentCurrency;
+    amount: number;
+    note?: string;
+    tableId?: string;
+    relatedCurrency?: PaymentCurrency;
+    relatedAmount?: number;
+    paymentMethod?: PaymentMethod;
+  }) => Promise<void>;
   onHistorySearch: (filters: {
     from?: string;
     to?: string;
@@ -111,10 +123,10 @@ interface Props {
   ) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
   onSetProductStatus: (id: string, isActive: boolean) => Promise<void>;
-  onCreateCategory: (name: string, isPackaging?: boolean) => Promise<void>;
+  onCreateCategory: (name: string, isPackaging?: boolean, hasSideDish?: boolean) => Promise<void>;
   onUpdateCategory: (
     id: string,
-    payload: { name?: string; isPackaging?: boolean },
+    payload: { name?: string; isPackaging?: boolean; hasSideDish?: boolean },
   ) => Promise<void>;
   onDeleteCategory: (id: string) => Promise<void>;
   onLoadStats: (filters: { from?: string; to?: string }) => Promise<void>;
@@ -165,6 +177,7 @@ export function AppRoutes(props: Props) {
               onOpenCashSession={props.onOpenCashSession}
               onCloseCashSession={props.onCloseCashSession}
               onCalculateCashChange={props.onCalculateCashChange}
+              onCreateCashMovement={props.onCreateCashMovement}
             />
           }
         />

@@ -203,6 +203,7 @@ function App() {
         onOpenCashSession={appData.openCashSession}
         onCloseCashSession={appData.closeCashSession}
         onCalculateCashChange={appData.calculateCashChange}
+        onCreateCashMovement={appData.createCashMovement}
         onHistorySearch={loadOrderHistory}
         onReprintKitchen={reprintKitchenTicket}
         onPrintOrderReceipt={printOrderReceipt}

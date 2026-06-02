@@ -90,7 +90,10 @@ export function AdminTablesPanel({
       </form>
 
       <div className="admin-table-list">
-        {tables.map((table) => (
+        {tables
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((table) => (
           <article key={table.id} className="admin-table-item">
             <div>
               <strong>{table.name}</strong>

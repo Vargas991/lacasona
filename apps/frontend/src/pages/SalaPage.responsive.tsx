@@ -46,29 +46,55 @@ export function SalaPage({
   const isMobile = useIsMobile();
   return (
     <>
+    {!isMobile ?
+    (
+
       <section className="layout-two">
-        {isMobile ? (
-          <TableList tables={tables} onSelect={setSelectedTable} />
-        ) : (
-          <TableGrid
-            tables={tables}
-            onSelect={setSelectedTable}
-            canEditLayout={sessionRole === 'ADMIN'}
-            onUpdateLayout={onUpdateLayout}
-          />
-        )}
+        <TableGrid
+        tables={tables}
+        onSelect={setSelectedTable}
+        canEditLayout={sessionRole === 'ADMIN'}
+        onUpdateLayout={onUpdateLayout}
+        />
         <OrderPanel
-          table={selectedTable}
-          tables={tables}
-          products={products}
-          items={selectedTable ? tableDrafts[selectedTable.id] || [] : []}
-          canMoveTable={sessionRole === 'ADMIN' || sessionRole === 'WAITER'}
-          onMoveTable={onMoveTable}
-          onChangeItems={onChangeItems}
-          onCreateOrder={onCreateOrder}
-          onPrintKitchenTicket={onPrintKitchenTicket}
+        table={selectedTable}
+        setSelectedTable={setSelectedTable}
+        tables={tables}
+        products={products}
+        items={selectedTable ? tableDrafts[selectedTable.id] || [] : []}
+        canMoveTable={sessionRole === 'ADMIN' || sessionRole === 'WAITER'}
+        onMoveTable={onMoveTable}
+        onChangeItems={onChangeItems}
+        onCreateOrder={onCreateOrder}
+        onPrintKitchenTicket={onPrintKitchenTicket}
         />
       </section>
+      ) : (
+        <>
+          {selectedTable ?(
+            <OrderPanel
+            table={selectedTable}
+            setSelectedTable={setSelectedTable}
+            tables={tables}
+            products={products}
+            items={selectedTable ? tableDrafts[selectedTable.id] || [] : []}
+            canMoveTable={sessionRole === 'ADMIN' || sessionRole === 'WAITER'}
+            onMoveTable={onMoveTable}
+            onChangeItems={onChangeItems}
+            onCreateOrder={onCreateOrder}
+            onPrintKitchenTicket={onPrintKitchenTicket}
+            />
+          ) : (
+            <TableList tables={tables} onSelect={setSelectedTable} />
+          )
+        }
+        </>
+      )
+    }
+    
+    
+      
+      {/* </section> */}
       {sessionRole === 'ADMIN' && (
         <AdminTablesPanel
           tables={tables}

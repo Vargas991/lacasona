@@ -111,7 +111,14 @@ a:hover {
   box-shadow: 0 8px 24px rgba(71, 49, 34, 0.12);
   padding: 1rem;
 }
-
+.panel .back-button{
+  display: none;
+}
+@media (max-width: 860px) {
+  .panel .back-button{
+    display: block;
+  }
+}
 .login {
   width: min(440px, 100%);
   display: grid;
@@ -325,6 +332,13 @@ button:hover {
   color: var(--paper-soft);
 }
 
+.product-list .product-price {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--paper);
+  margin-top: 0.25rem;
+}
+
 .category-tabs {
   display: flex;
   gap: 0.45rem;
@@ -339,6 +353,11 @@ button:hover {
   padding: 0.4rem 0.7rem;
   border-radius: 999px;
   font-weight: 600;
+}
+
+.product-list .category-tab{
+  color: var(--ink-soft);
+
 }
 
 .category-tab.active {
@@ -1002,6 +1021,18 @@ button:hover {
   align-items: end;
 }
 
+@media (max-width: 860px) {
+  .dashboard-filters,
+  .exchange-rate-form {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-filters button,
+  .exchange-rate-form button {
+    width: 100%;
+  }
+}
+
 .exchange-rate-form label {
   display: grid;
   gap: 0.3rem;
@@ -1021,19 +1052,21 @@ button:hover {
   background: #fffefb;
 }
 
-.sales-report-table-wrap {
+.sales-report-table-wrap,
+.cash-session-table-wrap {
   overflow-x: auto;
 }
 
 .sales-report-table {
   width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
 }
 
 .sales-report-table th,
 .sales-report-table td {
   border-bottom: 1px solid var(--line);
-  padding: 0.45rem;
+  padding: 0.6rem 0.8rem;
   text-align: left;
   white-space: nowrap;
 }
@@ -1353,4 +1386,11 @@ button:hover {
     size: 58mm auto;
     margin: 0;
   }
+}
+
+.cash-preview-orders-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }

@@ -8,4 +8,8 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isPackaging?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasSideDish?: boolean;
 }

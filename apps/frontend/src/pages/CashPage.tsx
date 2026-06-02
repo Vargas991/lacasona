@@ -19,6 +19,7 @@ interface Props {
     changeCurrency?: PaymentCurrency;
     registerInCashSession?: boolean;
     note?: string;
+    orderIds?: string[];
   }) => Promise<void>;
   onPreviewTable: (tableId: string) => Promise<CashPreview>;
   onPrintInvoice: (tableId: string) => Promise<void>;
@@ -43,6 +44,17 @@ interface Props {
     tenderedCurrency: PaymentCurrency;
     changeCurrency?: PaymentCurrency;
   }) => Promise<CashChangeQuote>;
+  onCreateCashMovement: (payload: {
+    sessionId: string;
+    type: 'EXPENSE' | 'MANUAL_INCOME' | 'EXCHANGE_IN' | 'EXCHANGE_OUT' | 'CLOSING_ADJUSTMENT';
+    currency: PaymentCurrency;
+    amount: number;
+    note?: string;
+    tableId?: string;
+    relatedCurrency?: PaymentCurrency;
+    relatedAmount?: number;
+    paymentMethod?: PaymentMethod;
+  }) => Promise<void>;
 }
 
 export function CashPage({
@@ -55,6 +67,7 @@ export function CashPage({
   onOpenCashSession,
   onCloseCashSession,
   onCalculateCashChange,
+  onCreateCashMovement,
 }: Props) {
    return (
     <CashPanel
@@ -67,6 +80,7 @@ export function CashPage({
       onOpenCashSession={onOpenCashSession}
       onCloseCashSession={onCloseCashSession}
       onCalculateCashChange={onCalculateCashChange}
+      onCreateCashMovement={onCreateCashMovement}
     />
   );
 }

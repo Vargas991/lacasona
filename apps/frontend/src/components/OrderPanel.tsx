@@ -23,6 +23,7 @@ function printKitchenPreviewInBrowser(preview: KitchenTicketPreview) {
 }
 import { useEffect, useMemo, useState } from 'react';
 import { KitchenTicketPreview, OrderItem, Product, RestaurantTable } from '../types';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface Props {
   table: RestaurantTable | null;
@@ -34,6 +35,7 @@ interface Props {
   onChangeItems: (items: OrderItem[]) => void;
   onCreateOrder: (tableId: string, items: OrderItem[], isDelivery?: boolean, deliveryAddress?: string) => Promise<KitchenTicketPreview | null>;
   onPrintKitchenTicket: (orderId: string) => Promise<void>;
+  setSelectedTable: (table: RestaurantTable | null) => void;
 }
 
 export function OrderPanel({
@@ -46,14 +48,22 @@ export function OrderPanel({
   onChangeItems,
   onCreateOrder,
   onPrintKitchenTicket,
+  setSelectedTable,
 }: Props) {
-  const [activeCategory, setActiveCategory] = useState('Todos');
+  // TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETURN O CONDICIONAL
+  const isMobile = useIsMobile();
+  const [activeCategory, setActiveCategory] = useState('');
   const [lastPreview, setLastPreview] = useState<KitchenTicketPreview | null>(null);
+  const [showLastPreview, setShowLastPreview] = useState(false);
   const [isTakeout, setIsTakeout] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [moveTargetTableId, setMoveTargetTableId] = useState('');
   const [moveModalOpen, setMoveModalOpen] = useState(false);
-
+  // Selección de contornos por cada plato
+  const [sideDishModal, setSideDishModal] = useState<{productId: string, quantity: number, idx?: number} | null>(null);
+  const [selectedSideDishes, setSelectedSideDishes] = useState<string[]>([]);
+  // const isMobile = useIsMobile();
+  // Productos de envase
   const packagingProducts = useMemo(
     () => products.filter((product) => product.category?.isPackaging === true),
     [products],
@@ -62,9 +72,19 @@ export function OrderPanel({
     () => new Set(packagingProducts.map((product) => product.id)),
     [packagingProducts],
   );
+  // Productos de contornos
+  const sideDishProducts = useMemo(
+    () => products.filter((product) => product.category?.name?.toLowerCase() === 'contornos'),
+    [products],
+  );
+  const sideDishProductIds = useMemo(
+    () => new Set(sideDishProducts.map((product) => product.id)),
+    [sideDishProducts],
+  );
+  // Productos normales (platos principales)
   const normalProducts = useMemo(
-    () => products.filter((product) => !packagingProductIds.has(product.id)),
-    [products, packagingProductIds],
+    () => products.filter((product) => !packagingProductIds.has(product.id) && !sideDishProductIds.has(product.id)),
+    [products, packagingProductIds, sideDishProductIds],
   );
 
   const categories = useMemo(() => {
@@ -72,12 +92,12 @@ export function OrderPanel({
     for (const product of normalProducts) {
       unique.add(product.category?.name || 'Sin categoria');
     }
-    return ['Todos', ...Array.from(unique).sort((a, b) => a.localeCompare(b))];
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [normalProducts]);
 
   useEffect(() => {
     if (!categories.includes(activeCategory)) {
-      setActiveCategory('Todos');
+      setActiveCategory(categories[0] || 'Todos');
     }
   }, [activeCategory, categories]);
 
@@ -94,13 +114,18 @@ export function OrderPanel({
   }, []);
 
   const visibleProducts = useMemo(() => {
-    if (activeCategory === 'Todos') {
+    if (!activeCategory) {
       return normalProducts;
     }
     return normalProducts.filter(
       (product) => (product.category?.name || 'Sin categoria') === activeCategory,
     );
   }, [activeCategory, normalProducts]);
+
+  const requiresSideDishes = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    return Boolean(product?.category?.hasSideDish && sideDishProducts.length > 0);
+  };
 
   const subtotal = useMemo(
     () =>
@@ -137,35 +162,123 @@ export function OrderPanel({
     (candidate) => candidate.id !== table.id && candidate.status === 'FREE',
   );
 
+
+  // Agregar plato principal: abre modal para seleccionar contornos solo si la categoria lo requiere
   const add = (productId: string) => {
-    const existing = items.find((i) => i.productId === productId);
-    if (existing) {
-      onChangeItems(
-        items.map((i) => (i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i)),
-      );
+    if (requiresSideDishes(productId)) {
+      setSideDishModal({ productId, quantity: 1 });
+      setSelectedSideDishes([]);
       return;
     }
 
-    onChangeItems([...items, { productId, quantity: 1 }]);
+    onChangeItems([
+      ...items,
+      {
+        productId,
+        quantity: 1,
+      },
+    ]);
   };
 
-  const removeOne = (productId: string) => {
+  // Confirmar selección de contornos y agregar a la orden
+  const confirmAddWithSides = () => {
+    if (!sideDishModal) return;
+    const { productId, quantity, idx } = sideDishModal;
+    const contornos = selectedSideDishes.slice(0, 3)
+      .map(id => {
+        const prod = products.find(p => p.id === id);
+        return prod ? prod.name : '';
+      })
+      .filter(Boolean)
+      .join(', ');
+    if (typeof idx === 'number') {
+      // Editar el item existente, preservando la nota adicional
+      onChangeItems(
+        items.map((item, i) => {
+          if (i !== idx) return item;
+          // Extraer nota adicional existente
+          let notaAdicional = '';
+          if (item.note?.startsWith('Contornos: ')) {
+            const match = item.note.match(/^Contornos: ([^|]*)(?: \| Nota: (.*))?$/);
+            if (match) {
+              notaAdicional = match[2] ?? '';
+            }
+          } else if (item.note) {
+            notaAdicional = item.note;
+          }
+          let note = '';
+          if (contornos) {
+            if (notaAdicional && notaAdicional.trim() !== '') {
+              note = `Contornos: ${contornos} \n| Nota: ${notaAdicional}`;
+            } else {
+              note = `Contornos: ${contornos}`;
+            }
+          } else {
+            note = notaAdicional;
+          }
+          return { ...item, note };
+        })
+      );
+    } else {
+      // Agregar nuevo item
+      let note = '';
+      if (contornos) {
+        note = `Contornos: ${contornos}`;
+      }
+      onChangeItems([
+        ...items,
+        {
+          productId,
+          quantity,
+          note,
+        },
+      ]);
+    }
+    setSideDishModal(null);
+    setSelectedSideDishes([]);
+  };
+
+  const removeOne = (idx: number) => {
     onChangeItems(
       items
-        .map((item) =>
-          item.productId === productId ? { ...item, quantity: item.quantity - 1 } : item,
+        .map((item, i) =>
+          i === idx ? { ...item, quantity: item.quantity - 1 } : item
         )
         .filter((item) => item.quantity > 0),
     );
   };
 
-  const updateNote = (productId: string, note: string) => {
+  // Sumar cantidad al mismo ítem (mismos contornos y nota)
+  const addSame = (item: OrderItem, idx: number) => {
     onChangeItems(
-      items.map((item) =>
-        item.productId === productId
-          ? { ...item, note: note.trim() ? note : undefined }
-          : item,
-      ),
+      items.map((it, i) =>
+        i === idx ? { ...it, quantity: it.quantity + 1 } : it
+      )
+    );
+  };
+
+  // Permite agregar nota adicional al final del comentario de contornos, por ítem (índice)
+  const updateNote = (idx: number, note: string) => {
+    onChangeItems(
+      items.map((item, i) => {
+        if (i !== idx) return item;
+        // Si la nota ya tiene contornos, los separamos
+        const contornoMatch = item.note?.match(/^Contornos: ([^|]*)(?: \| Nota: (.*))?$/);
+        let contornos = contornoMatch ? contornoMatch[1] : '';
+        let notaAdicional = note;
+        if (contornos) {
+          // Siempre incluir el separador | Nota: aunque esté vacío
+          return {
+            ...item,
+            note: `Contornos: ${contornos} | Nota: ${notaAdicional ?? ''}`,
+          };
+        } else {
+          return {
+            ...item,
+            note: notaAdicional ?? '',
+          };
+        }
+      })
     );
   };
 
@@ -180,6 +293,7 @@ export function OrderPanel({
 
   return (
     <section className="panel">
+      <button className="back-button" onClick={() => setSelectedTable(null)}>Volver</button>
       <div className="order-panel-header">
         <h3>Comanda {table.name}</h3>
         {canMoveTable && onMoveTable && table.status !== 'FREE' && (
@@ -208,10 +322,44 @@ export function OrderPanel({
       <div className="product-list">
         {visibleProducts.map((p) => (
           <button key={p.id} onClick={() => add(p.id)}>
-            {p.name} ${Number(p.price).toFixed(2)}
+            {p.name} <span className="product-price"> ${Number(p.price).toFixed(2)}</span>
           </button>
         ))}
       </div>
+
+      {/* Modal para seleccionar contornos */}
+      {sideDishModal && (
+        <div className="print-modal-backdrop" onClick={() => setSideDishModal(null)}>
+          <section className="print-modal" onClick={e => e.stopPropagation()}>
+            <header className="print-modal-header">
+              <h4>Selecciona hasta 3 contornos</h4>
+              <button type="button" onClick={() => setSideDishModal(null)}>Cerrar</button>
+            </header>
+            <div className="product-list">
+
+              {sideDishProducts.map((contorno) => (
+                <button
+                key={contorno.id}
+                type="button"
+                  className={selectedSideDishes.includes(contorno.id) ? 'category-tab active' : 'category-tab'}
+                  onClick={() => {
+                    if (selectedSideDishes.includes(contorno.id)) {
+                      setSelectedSideDishes(selectedSideDishes.filter(id => id !== contorno.id));
+                    } else if (selectedSideDishes.length < 3) {
+                      setSelectedSideDishes([...selectedSideDishes, contorno.id]);
+                    }
+                  }}
+                  >
+                  {contorno.name}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={confirmAddWithSides}>
+              Agregar plato con contornos
+            </button>
+          </section>
+        </div>
+      )}
       {!visibleProducts.length && <p>No hay productos en esta categoria.</p>}
       <section className="takeout-section">
         <label className="takeout-toggle">
@@ -237,7 +385,7 @@ export function OrderPanel({
             <div className="product-list">
               {packagingProducts.map((product) => (
                 <button type="button" key={product.id} onClick={() => add(product.id)}>
-                  {product.name} ${Number(product.price).toFixed(2)}
+                  {product.name} <span className="product-price"> ${Number(product.price).toFixed(2)}</span>
                 </button>
               ))}
             </div>
@@ -251,27 +399,62 @@ export function OrderPanel({
         )}
       </section>
       <ul>
-        {items.map((item) => {
+        {items.map((item, idx) => {
           const p = products.find((product) => product.id === item.productId);
+          // Mostrar contornos en la nota si existen
+          let contornos = '';
+          let notaAdicional = '';
+          if (item.note?.startsWith('Contornos: ')) {
+            const match = item.note.match(/^Contornos: ([^|]*)(?: \| Nota: (.*))?$/);
+            if (match) {
+              contornos = match[1];
+              notaAdicional = match[2] ?? '';
+            }
+          } else if (item.note) {
+            notaAdicional = item.note;
+          }
           return (
-            <li key={item.productId}>
+            <li key={idx}>
               <div className="order-item-main">
                 <span>
                   {item.quantity} x {p?.name}
+                  {/* Botón para editar contornos solo para productos principales con contornos disponibles */}
+                  {contornos && <span style={{fontSize: '0.9em', color: '#888'}}> (Contornos: {contornos})</span>}
+                  {p && !packagingProductIds.has(p.id) && !sideDishProductIds.has(p.id) && p.category?.hasSideDish && sideDishProducts.length > 0 && (
+                    <button
+                      type="button"
+                      className="order-edit-sides-btn"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => {
+                        setSideDishModal({ productId: item.productId, quantity: item.quantity, idx });
+                        // Si ya hay contornos, marcarlos como seleccionados
+                        if (contornos) {
+                          const selected = contornos.split(',').map(s => s.trim());
+                          setSelectedSideDishes(
+                            sideDishProducts.filter(sd => selected.includes(sd.name)).map(sd => sd.id)
+                          );
+                        } else {
+                          setSelectedSideDishes([]);
+                        }
+                      }}
+                    >
+                      Editar
+                    </button>
+                  )}
                 </span>
                 <input
                   className="order-note-input"
                   type="text"
-                  placeholder="Nota para cocina (ej. sin cebolla)"
-                  value={item.note || ''}
-                  onChange={(e) => updateNote(item.productId, e.target.value)}
+                  placeholder="Nota adicional para cocina (ej. sin cebolla)"
+                  value={notaAdicional}
+                  onChange={(e) => updateNote(idx, e.target.value)}
                 />
               </div>
               <div className="order-item-actions">
-                <button type="button" onClick={() => removeOne(item.productId)}>
+                <button type="button" onClick={() => removeOne(idx)}>
                   -
                 </button>
-                <button type="button" onClick={() => add(item.productId)}>
+                <button type="button" onClick={() => addSame(item, idx)}>
                   +
                 </button>
               </div>
@@ -292,26 +475,30 @@ export function OrderPanel({
       )}
       <button
         onClick={async () => {
-          let itemsToSend = items;
-
+          // Antes de enviar, quitamos sideDishes y solo dejamos note
+          let itemsToSend = items.map(item => {
+            const { sideDishes, ...rest } = item;
+            return rest;
+          });
+          
           if (isTakeout) {
             if (!packagingProducts.length) {
               window.alert('Debes configurar productos en la categoria de envases.');
               return;
             }
-
+            
             const hasPackagingItem = items.some((item) => packagingProductIds.has(item.productId));
             if (!hasPackagingItem) {
               window.alert('Selecciona al menos un envase para el pedido para llevar.');
               return;
             }
-
+            
             if (!deliveryAddress.trim()) {
               window.alert('Ingresa la direccion de entrega.');
               return;
             }
           }
-
+          
           // Llama a onCreateOrder con isDelivery y deliveryAddress si es para llevar
           const preview = await onCreateOrder(
             table.id,
@@ -320,19 +507,17 @@ export function OrderPanel({
             isTakeout ? deliveryAddress.trim() : undefined
           );
 
-          console.log(preview);
-          
-          
           onChangeItems([]);
           setLastPreview(preview);
+          setShowLastPreview(Boolean(preview));
           setIsTakeout(false);
           setDeliveryAddress('');
-
+          
           if (!preview) {
             window.alert('Comanda enviada. No se pudo generar preview de impresion.');
             return;
           }
-
+          
           if (!preview.printable) {
             window.alert(
               `Comanda enviada con errores de impresion:\n- ${preview.validationErrors.join('\n- ')}`,
@@ -340,16 +525,27 @@ export function OrderPanel({
           }
         }}
         disabled={!items.length}
-      >
+        >
         Enviar a cocina
       </button>
+      <br />
+      <br />
+        {lastPreview && !showLastPreview && (
+          <button
+            type="button"
+            className="view-order-button"
+            onClick={() => setShowLastPreview(true)}
+          >
+            Ver pedido generado
+          </button>
+        )}
 
-      {lastPreview && (
-        <div className="print-modal-backdrop" onClick={() => setLastPreview(null)}>
+      {showLastPreview && lastPreview && (
+        <div className="print-modal-backdrop" onClick={() => setShowLastPreview(false)}>
           <section className="print-modal" onClick={(event) => event.stopPropagation()}>
             <header className="print-modal-header">
               <h4>Preview de impresion</h4>
-              <button type="button" onClick={() => setLastPreview(null)}>
+              <button type="button" onClick={() => setShowLastPreview(false)}>
                 Cerrar
               </button>
             </header>
@@ -367,15 +563,15 @@ export function OrderPanel({
                 onClick={() => printToKitchenPrinter(lastPreview.orderId)}
                 disabled={!lastPreview.printable}
               >
-                Imprimir en cocina (backend)
+                Imprimir en cocina
               </button>
-              <button
+              {/* <button
                 type="button"
                 onClick={() => printKitchenPreviewInBrowser(lastPreview)}
                 disabled={!lastPreview.printable}
               >
                 Imprimir desde navegador
-              </button>
+              </button> */}
             </div>
           </section>
         </div>

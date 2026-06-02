@@ -37,7 +37,9 @@ export function TableGrid({
     return acc;
   }, {});
 
-  const zones = Object.entries(groupedByZone).sort(([a], [b]) => a.localeCompare(b));
+  const zones = Object.entries(groupedByZone)
+    .map(([zoneName, zoneTables]) => [zoneName, zoneTables.sort((a, b) => a.name.localeCompare(b.name))] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
 
   useEffect(() => {
     const next = tables.reduce<Record<string, { x: number; y: number }>>((acc, table) => {

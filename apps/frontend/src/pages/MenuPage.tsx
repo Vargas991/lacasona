@@ -11,10 +11,10 @@ interface Props {
   ) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
   onSetProductStatus: (id: string, isActive: boolean) => Promise<void>;
-  onCreateCategory: (name: string, isPackaging?: boolean) => Promise<void>;
+  onCreateCategory: (name: string, isPackaging?: boolean, hasSideDish?: boolean) => Promise<void>;
   onUpdateCategory: (
     id: string,
-    payload: { name?: string; isPackaging?: boolean },
+    payload: { name?: string; isPackaging?: boolean; hasSideDish?: boolean },
   ) => Promise<void>;
   onDeleteCategory: (id: string) => Promise<void>;
 }

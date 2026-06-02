@@ -68,6 +68,7 @@ interface Props {
     changeCurrency?: PaymentCurrency;
     registerInCashSession?: boolean;
     note?: string;
+    orderIds?: string[];
   }) => Promise<void>;
   onPreviewTable: (tableId: string) => Promise<CashPreview>;
   onPrintInvoice: (tableId: string) => Promise<void>;
@@ -92,6 +93,17 @@ interface Props {
     tenderedCurrency: PaymentCurrency;
     changeCurrency?: PaymentCurrency;
   }) => Promise<CashChangeQuote>;
+  onCreateCashMovement: (payload: {
+    sessionId: string;
+    type: 'EXPENSE' | 'MANUAL_INCOME' | 'EXCHANGE_IN' | 'EXCHANGE_OUT' | 'CLOSING_ADJUSTMENT';
+    currency: PaymentCurrency;
+    amount: number;
+    note?: string;
+    tableId?: string;
+    relatedCurrency?: PaymentCurrency;
+    relatedAmount?: number;
+    paymentMethod?: PaymentMethod;
+  }) => Promise<void>;
 }
 
 const OPENING_BALANCES_KEY = 'lacasona.cash.opening-balances';
@@ -179,16 +191,26 @@ function getCopEquivalent(
   return amount * exchangeRates.copToUsdDivisor;
 }
 
-function getPreviewAmountByCurrency(preview: CashPreview, currency: PaymentCurrency) {
+function getPreviewAmountByCurrency(preview: CashPreview, currency: PaymentCurrency, amountCop: number) {
   if (currency === 'COP') {
-    return preview.total;
+    return amountCop;
   }
 
   if (currency === 'BS') {
-    return preview.conversions.bs;
+    return amountCop / preview.exchangeRates.copToBsDivisor;
   }
 
-  return preview.conversions.usd;
+  return amountCop / preview.exchangeRates.copToUsdDivisor;
+}
+
+function convertCopToCurrency(amountCop: number, currency: PaymentCurrency, exchangeRates: CashPreview['exchangeRates']) {
+  if (currency === 'BS') {
+    return amountCop / exchangeRates.copToBsDivisor;
+  }
+  if (currency === 'USD') {
+    return amountCop / exchangeRates.copToUsdDivisor;
+  }
+  return amountCop;
 }
 
 export function CashPanel({
@@ -200,8 +222,11 @@ export function CashPanel({
   onOpenCashSession,
   onCloseCashSession,
   onCalculateCashChange,
+  onCreateCashMovement,
 }: Props) {
-  const occupied = tables.filter((t) => ['OCCUPIED', 'RESERVED', 'BILLING'].includes(t.status));
+  const occupied = tables
+    .filter((t) => ['OCCUPIED', 'RESERVED', 'BILLING'].includes(t.status))
+    .sort((a, b) => a.name.localeCompare(b.name));
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('CASH_COP');
   const [preview, setPreview] = useState<CashPreview | null>(null);
@@ -234,6 +259,13 @@ export function CashPanel({
   const [quoteLoading, setQuoteLoading] = useState(false);
   const tenderedInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCurrency, setExpenseCurrency] = useState<PaymentCurrency>('COP');
+  const [expenseNote, setExpenseNote] = useState('');
+  const [expenseBusy, setExpenseBusy] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+
   const selectedMethodLabel = useMemo(
     () => PAYMENT_OPTIONS.find((option) => option.method === selectedMethod)?.label || selectedMethod,
     [selectedMethod],
@@ -241,6 +273,18 @@ export function CashPanel({
   const latestMovement = useMemo(
     () => (activeSession?.movements.length ? activeSession.movements[activeSession.movements.length - 1] : null),
     [activeSession],
+  );
+  const selectedOrders = useMemo(
+    () => (preview ? preview.orders.filter((order) => selectedOrderIds.includes(order.id)) : []),
+    [preview, selectedOrderIds],
+  );
+  const selectedItems = useMemo(
+    () => (preview ? preview.items.filter((item) => selectedOrderIds.includes(item.orderId)) : []),
+    [preview, selectedOrderIds],
+  );
+  const selectedOrdersTotalCop = useMemo(
+    () => selectedItems.reduce((sum, item) => sum + item.lineTotal, 0),
+    [selectedItems],
   );
   const totalSalesCount = useMemo(
     () =>
@@ -266,10 +310,25 @@ export function CashPanel({
 
     return `COP ${formatCompactNumber(openingBalances.COP)} | Bs ${formatCompactNumber(openingBalances.BS)} | USD ${formatCompactNumber(openingBalances.USD)}`;
   }, [activeSession]);
+
+  const outflowTotals = useMemo(() => {
+    if (!activeSession) {
+      return { COP: 0, BS: 0, USD: 0 } as Record<PaymentCurrency, number>;
+    }
+
+    return {
+      COP: activeSession.movementTotals.outflows.COP,
+      BS: activeSession.movementTotals.outflows.BS,
+      USD: activeSession.movementTotals.outflows.USD,
+    };
+  }, [activeSession]);
+
   const previewDisplayCurrency = showPaymentModal ? tenderedCurrency : getMethodCurrency(selectedMethod);
-  const previewDisplayTotal = preview
-    ? getPreviewAmountByCurrency(preview, previewDisplayCurrency)
-    : 0;
+  const selectedPreviewTotal = useMemo(
+    () => (preview ? convertCopToCurrency(selectedOrdersTotalCop, previewDisplayCurrency, preview.exchangeRates) : 0),
+    [preview, selectedOrdersTotalCop, previewDisplayCurrency],
+  );
+  const previewDisplayTotal = preview ? selectedPreviewTotal : 0;
 
   const getPaymentErrorMessage = (rawMessage: string, parsedAmount?: number) => {
     if (!preview) {
@@ -291,7 +350,7 @@ export function CashPanel({
       normalized.includes('insufficient')
     ) {
       const tenderedCop = getCopEquivalent(parsedAmount, tenderedCurrency, preview.exchangeRates);
-      const missingAmount = Math.max(preview.total - tenderedCop, 0);
+      const missingAmount = Math.max(selectedOrdersTotalCop - tenderedCop, 0);
       return `El monto recibido no cubre el total. Faltan COP ${formatCompactNumber(missingAmount)}.`;
     }
 
@@ -365,7 +424,7 @@ export function CashPanel({
     setChangeError('');
 
     void onCalculateCashChange({
-      totalAmount: preview.total,
+      totalAmount: selectedOrdersTotalCop,
       totalCurrency: 'COP',
       tenderedAmount: parsedAmount,
       tenderedCurrency,
@@ -401,6 +460,7 @@ export function CashPanel({
     try {
       const data = await onPreviewTable(tableId);
       setPreview(data);
+      setSelectedOrderIds(data.orders.map((order) => order.id));
     } finally {
       setLoading(false);
     }
@@ -507,12 +567,51 @@ export function CashPanel({
     }
   };
 
+  const confirmRegisterExpense = async () => {
+    if (!activeSession) {
+      return;
+    }
+
+    const parsedAmount = Number(expenseAmount);
+    if (!expenseAmount) {
+      window.alert('Ingresa un monto valido para la salida de dinero.');
+      return;
+    }
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      window.alert('Ingresa un monto valido para la salida de dinero.');
+      return;
+    }
+
+    setExpenseBusy(true);
+    try {
+      await onCreateCashMovement({
+        sessionId: activeSession.session.id,
+        type: 'EXPENSE',
+        currency: expenseCurrency,
+        amount: parsedAmount,
+        note: expenseNote || 'Salida de dinero',
+      });
+      setShowExpenseModal(false);
+      setExpenseAmount('');
+      setExpenseNote('');
+      await loadCashSession();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'No se pudo registrar la salida de dinero.');
+    } finally {
+      setExpenseBusy(false);
+    }
+  };
+
   const confirmCloseTable = async () => {
     if (!selectedTableId) {
       return;
     }
 
     const parsedAmount = Number(tenderedAmount);
+    if (!selectedOrderIds.length) {
+      window.alert('Selecciona al menos una cuenta para cobrar.');
+      return;
+    }
     if (!tenderedAmount) {
       setChangeError('El monto recibido es obligatorio.');
       tenderedInputRef.current?.focus();
@@ -552,6 +651,7 @@ export function CashPanel({
         changeCurrency,
         registerInCashSession: !isTransferPayment,
         note: paymentNote || undefined,
+        orderIds: selectedOrderIds,
       });
       setPreview(null);
       setSelectedTableId(null);
@@ -579,6 +679,9 @@ export function CashPanel({
               <div className="cash-session-pill">
                 Abierta desde {new Date(activeSession.session.openedAt).toLocaleTimeString()}
               </div>
+              <button type="button" onClick={() => setShowExpenseModal(true)} disabled={!activeSession}>
+                Registrar salida de dinero
+              </button>
               <button type="button" className="danger-btn" onClick={openCloseSessionModal}>
                 Cerrar caja
               </button>
@@ -615,6 +718,13 @@ export function CashPanel({
               <strong>Resumen operativo</strong>
               <span>{selectedTableId ? 'Cobro en curso' : 'Lista para cobrar'}</span>
               <small>Separo el estado de caja del flujo de cobro para reducir errores.</small>
+            </article>
+            <article className="cash-session-summary-card">
+              <strong>Salidas registradas</strong>
+              <span>{formatCurrency('COP', outflowTotals.COP)}</span>
+              <small>
+                Bs {formatCompactNumber(outflowTotals.BS)} | USD {formatCompactNumber(outflowTotals.USD)}
+              </small>
             </article>
           </div>
         )}
@@ -701,18 +811,161 @@ export function CashPanel({
 
       <div className="cash-list">
         {occupied.map((table) => (
-          <article key={table.id} className="cash-item">
-            <strong>{table.name}</strong>
-            <div>
-              <button onClick={() => openPreview(table.id)}>
-                {selectedTableId === table.id && loading ? 'Cargando...' : 'Ver detalle'}
-              </button>
-            </div>
-          </article>
+          <div key={table.id} className="cash-item-group">
+            <article className="cash-item">
+              <strong>{table.name}</strong>
+              <div>
+                <button onClick={() => openPreview(table.id)}>
+                  {selectedTableId === table.id && loading ? 'Cargando...' : 'Ver detalle'}
+                </button>
+              </div>
+            </article>
+            {selectedTableId === table.id && preview && (
+              <section className="cash-preview">
+                <h4>Detalle de cuenta - {preview.table.name}</h4>
+                <div className="cash-preview-hero">
+                  <article className="cash-preview-total-card">
+                    <span>Total a cobrar</span>
+                    <strong>{formatCurrency(previewDisplayCurrency, previewDisplayTotal)}</strong>
+                    <small>
+                      Cobro actual en {previewDisplayCurrency} segun el metodo seleccionado
+                    </small>
+                  </article>
+                  <article className="cash-preview-summary-card">
+                    <span>Subtotal</span>
+                    <strong>{formatCurrency('COP', preview.subtotal)}</strong>
+                  </article>
+                  <article className="cash-preview-summary-card">
+                    <span>Impuestos</span>
+                    <strong>{formatCurrency('COP', preview.tax)}</strong>
+                  </article>
+                </div>
+                <div className="cash-preview-orders">
+                  <div className="cash-preview-orders-header">
+                    <strong>Comandas abiertas</strong>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedOrderIds(
+                          preview.orders.map((order) => order.id),
+                        )
+                      }
+                    >
+                      Marcar todos
+                    </button>
+                  </div>
+                  {preview.orders.map((order) => (
+                    <div key={order.id} className="cash-preview-order-row">
+                      <label className="cash-preview-order">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.includes(order.id)}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setSelectedOrderIds((current) => [...current, order.id]);
+                            } else {
+                              setSelectedOrderIds((current) => current.filter((id) => id !== order.id));
+                            }
+                          }}
+                        />
+                        <span>
+                          Comanda #{String(order.dailySequence).padStart(3, '0')} · {new Date(order.createdAt).toLocaleTimeString()}
+                          {order.isDelivery ? ' · Envío' : ''}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <table className="cash-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Cant</th>
+                      <th>Precio</th>
+                      <th>Total</th>
+                      <th>Nota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedItems.length ? (
+                      selectedItems.map((item, index) => (
+                        <tr key={`${item.orderId}-${item.productId}-${index}`}>
+                          <td>{item.productName}</td>
+                          <td>{item.quantity}</td>
+                          <td>${formatCompactNumber(item.unitPrice)}</td>
+                          <td>${formatCompactNumber(item.lineTotal)}</td>
+                          <td className="cash-note">{item.note || '-'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="cash-empty-row">
+                          Selecciona una comanda para ver sus productos.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                <div className="cash-totals">
+                  <p>Total COP: ${formatCompactNumber(selectedOrdersTotalCop)}</p>
+                  <p>Total Bs: {formatCompactNumber(preview ? convertCopToCurrency(selectedOrdersTotalCop, 'BS', preview.exchangeRates) : 0)}</p>
+                  <p>Total USD: {formatCompactNumber(preview ? convertCopToCurrency(selectedOrdersTotalCop, 'USD', preview.exchangeRates) : 0)}</p>
+                </div>
+
+                <div className="cash-conversion-grid">
+                  <article><strong>COP</strong><span>${formatCompactNumber(preview.conversions.cop)}</span></article>
+                  <article><strong>Bs</strong><span>{formatCompactNumber(preview.conversions.bs)}</span></article>
+                  <article><strong>USD</strong><span>{formatCompactNumber(preview.conversions.usd)}</span></article>
+                </div>
+
+                <div className="cash-payment-selector">
+                  <label htmlFor="payment-method">Tipo de pago</label>
+                  <select
+                    id="payment-method"
+                    value={selectedMethod}
+                    onChange={(event) => setSelectedMethod(event.target.value as PaymentMethod)}
+                  >
+                    {PAYMENT_OPTIONS.map((option) => (
+                      <option key={option.method} value={option.method}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="cash-actions cash-actions-grid">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!selectedTableId) {
+                        return;
+                      }
+                      try {
+                        await onPrintInvoice(selectedTableId);
+                        window.alert('Factura enviada a la impresora.');
+                      } catch (error) {
+                        window.alert('No se pudo imprimir la factura: ' + (error as Error).message);
+                      }
+                    }}
+                  >
+                    Imprimir factura (backend)
+                  </button>
+                  <button type="button" onClick={() => preview && printPreviewInBrowser(preview)}>
+                    Imprimir navegador
+                  </button>
+                  <button type="button" onClick={openPaymentModal} disabled={!activeSession}>
+                    Cerrar cuenta
+                  </button>
+                  {!activeSession && <p className="cash-warning">Abre caja antes de cerrar una cuenta.</p>}
+                </div>
+              </section>
+            )}
+          </div>
         ))}
       </div>
 
-      {preview && (
+      {preview && false && (
         <section className="cash-preview">
           <h4>Detalle de cuenta - {preview.table.name}</h4>
           <div className="cash-preview-hero">
@@ -825,7 +1078,7 @@ export function CashPanel({
           <div className="cash-payment-hero">
             <article className="cash-payment-hero-card highlight">
               <span>Total</span>
-              <strong>{preview ? formatCurrency(tenderedCurrency, getPreviewAmountByCurrency(preview, tenderedCurrency)) : '--'}</strong>
+              <strong>{preview ? formatCurrency(tenderedCurrency, getPreviewAmountByCurrency(preview, tenderedCurrency, selectedOrdersTotalCop)) : '--'}</strong>
             </article>
             <article className="cash-payment-hero-card">
               <span>Recibido</span>
@@ -859,7 +1112,7 @@ export function CashPanel({
                     setTenderedAmount(
                       String(
                         preview
-                          ? getPreviewAmountByCurrency(preview, tenderedCurrency)
+                          ? getPreviewAmountByCurrency(preview, tenderedCurrency, selectedOrdersTotalCop)
                           : 0,
                       ),
                     )
@@ -965,6 +1218,51 @@ export function CashPanel({
                 </article>
               </div>
             )}
+          </div>
+        </div>
+      </ModalConfirm>
+
+      <ModalConfirm
+        open={showExpenseModal}
+        title="Registrar salida de dinero"
+        confirmLabel={expenseBusy ? 'Registrando...' : 'Confirmar salida'}
+        cancelLabel="Cancelar"
+        onConfirm={confirmRegisterExpense}
+        onCancel={() => setShowExpenseModal(false)}
+      >
+        <div className="cash-payment-modal">
+          <p>Registra una salida de caja sin cerrar cuenta.</p>
+          <div className="cash-payment-form-grid">
+            <label>
+              Monto
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={expenseAmount}
+                onChange={(event) => setExpenseAmount(event.target.value)}
+              />
+            </label>
+            <label>
+              Moneda
+              <select
+                value={expenseCurrency}
+                onChange={(event) => setExpenseCurrency(event.target.value as PaymentCurrency)}
+              >
+                {CURRENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="cash-payment-note">
+              Nota
+              <input
+                value={expenseNote}
+                onChange={(event) => setExpenseNote(event.target.value)}
+              />
+            </label>
           </div>
         </div>
       </ModalConfirm>

@@ -11,8 +11,11 @@ interface Props {
   ) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
   onSetProductStatus: (id: string, isActive: boolean) => Promise<void>;
-  onCreateCategory: (name: string, isPackaging?: boolean) => Promise<void>;
-  onUpdateCategory: (id: string, payload: { name?: string; isPackaging?: boolean }) => Promise<void>;
+  onCreateCategory: (name: string, isPackaging?: boolean, hasSideDish?: boolean) => Promise<void>;
+  onUpdateCategory: (
+    id: string,
+    payload: { name?: string; isPackaging?: boolean; hasSideDish?: boolean },
+  ) => Promise<void>;
   onDeleteCategory: (id: string) => Promise<void>;
 }
 
@@ -32,6 +35,7 @@ export function AdminMenuPanel({
   const [categoryId, setCategoryId] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [categoryIsPackaging, setCategoryIsPackaging] = useState(false);
+  const [categoryHasSideDish, setCategoryHasSideDish] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleCreateCategory = async (event: FormEvent) => {
@@ -42,9 +46,10 @@ export function AdminMenuPanel({
 
     setSaving(true);
     try {
-      await onCreateCategory(categoryName.trim(), categoryIsPackaging);
+      await onCreateCategory(categoryName.trim(), categoryIsPackaging, categoryHasSideDish);
       setCategoryName('');
       setCategoryIsPackaging(false);
+      setCategoryHasSideDish(false);
     } finally {
       setSaving(false);
     }
@@ -98,6 +103,14 @@ export function AdminMenuPanel({
             onChange={(e) => setCategoryIsPackaging(e.target.checked)}
           />
           Categoria de envases
+        </label>
+        <label className="category-packaging-toggle">
+          <input
+            type="checkbox"
+            checked={categoryHasSideDish}
+            onChange={(e) => setCategoryHasSideDish(e.target.checked)}
+          />
+          Categoria con contornos
         </label>
         <button disabled={saving}>{saving ? 'Guardando...' : 'Agregar categoria'}</button>
       </form>
@@ -167,11 +180,12 @@ function EditableCategoryRow({
   onDelete,
 }: {
   category: Category;
-  onSave: (id: string, payload: { name?: string; isPackaging?: boolean }) => Promise<void>;
+  onSave: (id: string, payload: { name?: string; isPackaging?: boolean; hasSideDish?: boolean }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const [name, setName] = useState(category.name);
   const [isPackaging, setIsPackaging] = useState(Boolean(category.isPackaging));
+  const [hasSideDish, setHasSideDish] = useState(Boolean(category.hasSideDish));
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -184,7 +198,7 @@ function EditableCategoryRow({
     setBusy(true);
     setSaving(true);
     try {
-      await onSave(category.id, { name: name.trim(), isPackaging });
+      await onSave(category.id, { name: name.trim(), isPackaging, hasSideDish });
       setIsEditing(false);
     } finally {
       setSaving(false);
@@ -214,6 +228,7 @@ function EditableCategoryRow({
         <strong className="category-title">
           {category.name}
           {category.isPackaging ? ' (Envases)' : ''}
+          {category.hasSideDish ? ' (Contornos)' : ''}
         </strong>
         <button
           type="button"
@@ -237,6 +252,14 @@ function EditableCategoryRow({
               onChange={(e) => setIsPackaging(e.target.checked)}
             />
             Envases
+          </label>
+          <label className="category-packaging-toggle">
+            <input
+              type="checkbox"
+              checked={hasSideDish}
+              onChange={(e) => setHasSideDish(e.target.checked)}
+            />
+            Contornos
           </label>
           <button type="button" onClick={save} disabled={busy}>
             {saving ? 'Guardando...' : 'Guardar'}

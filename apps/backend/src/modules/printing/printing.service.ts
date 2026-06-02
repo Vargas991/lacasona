@@ -135,7 +135,7 @@ export class PrintingService {
       escpos += `${item.quantity} x ${item.product.name}\n`;
       escpos += '\x1D\x21\x00';
       if (item.note) {
-        escpos += `Nota: ${item.note}\n`;
+        escpos += `${item.note}\n`;
       }
     });
 
@@ -230,7 +230,7 @@ export class PrintingService {
       '----------------------',
       ...order.items.map(
         (item) =>
-          `${item.quantity} x ${item.product.name}\n${item.note ? `Nota: ${item.note}` : ''}`,
+          `${item.quantity} x ${item.product.name}\n${item.note ? `${item.note}` : ''}`,
       ),
       '----------------------',
     ].filter(Boolean);
@@ -420,15 +420,9 @@ export class PrintingService {
       select: { paidAt: true },
     });
 
-    const where: Prisma.OrderWhereInput = {
+    return {
       tableId,
       payment: null,
     };
-
-    if (lastPayment?.paidAt) {
-      where.createdAt = { gt: lastPayment.paidAt };
-    }
-
-    return where;
   }
 }

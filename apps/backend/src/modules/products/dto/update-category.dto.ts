@@ -9,4 +9,8 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isPackaging?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasSideDish?: boolean;
 }
