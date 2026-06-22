@@ -1132,6 +1132,9 @@ button:hover {
 .admin-menu {
   display: grid;
   gap: 0.8rem;
+  width: 80%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .admin-category-form {
@@ -1160,7 +1163,7 @@ button:hover {
 }
 
 .admin-menu-group {
-  border: 1px solid var(--line);
+  /* border: 1px solid var(--line); */
   border-radius: 12px;
   padding: 0.7rem;
   background: #fffefb;
@@ -1209,7 +1212,7 @@ button:hover {
   grid-template-columns: 2fr 1fr 1fr auto auto auto;
   gap: 0.5rem;
   align-items: center;
-  border: 1px solid var(--line);
+  /* border: 1px solid var(--line); */
   border-radius: 10px;
   padding: 0.55rem;
   background: #fffefb;

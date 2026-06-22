@@ -297,6 +297,34 @@ export interface CashSessionReport {
   movements: CashSessionReportMovement[];
 }
 
+export interface CashChangeQuote {
+  total: {
+    amount: number;
+    currency: PaymentCurrency;
+    copEquivalent: number;
+  };
+  tendered: {
+    amount: number;
+    currency: PaymentCurrency;
+    copEquivalent: number;
+  };
+  change: {
+    copEquivalent: number;
+    dueInTenderedCurrency: {
+      amount: number;
+      currency: PaymentCurrency;
+    };
+    deliverInCurrency: {
+      amount: number;
+      currency: PaymentCurrency;
+    };
+  };
+  exchangeRates: {
+    copToBsDivisor: number;
+    copToUsdDivisor: number;
+  };
+}
+
 export interface DashboardStats {
   total: {
     amount: number;

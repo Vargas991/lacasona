@@ -82,9 +82,20 @@ export function AdminMenuPanel({
     return acc;
   }, {});
 
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(Object.keys(groupedProducts).map((name) => [name, false])),
+  );
+
   const orderedCategoryNames = Object.keys(groupedProducts).sort((a, b) =>
     a.localeCompare(b),
   );
+
+  const toggleCategory = (name: string) => {
+    setExpandedCategories((current) => ({
+      ...current,
+      [name]: !current[name],
+    }));
+  };
 
   return (
     <section className="panel admin-menu">
@@ -152,21 +163,24 @@ export function AdminMenuPanel({
               return (
                 <EditableCategoryRow
                   category={category}
+                  expanded={Boolean(expandedCategories[categoryName])}
+                  onToggleCollapse={() => toggleCategory(categoryName)}
                   onSave={onUpdateCategory}
                   onDelete={onDeleteCategory}
                 />
               );
             })()}
-            {groupedProducts[categoryName].map((product) => (
-              <EditableProductRow
-                key={product.id}
-                product={product}
-                categories={categories}
-                onSave={onUpdateProduct}
-                onDelete={onDeleteProduct}
-                onSetStatus={onSetProductStatus}
-              />
-            ))}
+            {expandedCategories[categoryName] &&
+              groupedProducts[categoryName].map((product) => (
+                <EditableProductRow
+                  key={product.id}
+                  product={product}
+                  categories={categories}
+                  onSave={onUpdateProduct}
+                  onDelete={onDeleteProduct}
+                  onSetStatus={onSetProductStatus}
+                />
+              ))}
           </section>
         ))}
       </div>
@@ -176,10 +190,14 @@ export function AdminMenuPanel({
 
 function EditableCategoryRow({
   category,
+  expanded,
+  onToggleCollapse,
   onSave,
   onDelete,
 }: {
   category: Category;
+  expanded: boolean;
+  onToggleCollapse: () => void;
   onSave: (id: string, payload: { name?: string; isPackaging?: boolean; hasSideDish?: boolean }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
@@ -224,16 +242,19 @@ function EditableCategoryRow({
 
   return (
     <article className="category-admin-item">
-      <div className="category-admin-summary">
+      <div className="category-admin-summary" onClick={onToggleCollapse} style={{ cursor: 'pointer' }}>
         <strong className="category-title">
-          {category.name}
+          {expanded ? '▾' : '▸'} {category.name}
           {category.isPackaging ? ' (Envases)' : ''}
           {category.hasSideDish ? ' (Contornos)' : ''}
         </strong>
         <button
           type="button"
           className="icon-btn"
-          onClick={() => setIsEditing((current) => !current)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsEditing((current) => !current);
+          }}
           disabled={busy}
           title="Editar categoria"
           aria-label="Editar categoria"
